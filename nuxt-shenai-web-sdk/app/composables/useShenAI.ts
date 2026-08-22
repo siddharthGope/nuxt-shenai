@@ -1,3 +1,13 @@
+// Brand colors applied to the SDK's built-in canvas UI via setCustomColorTheme.
+const THEME = {
+  themeColor: '#E8623D', // START/STOP text + progress bar
+  textColor: '#0f172a', // results text
+  backgroundColor: '#ffffff', // background around UI + results
+  tileColor: '#ffffff', // result tiles, face overlay, buttons
+  buttonMainColor: '#E8623D', // left gradient of main buttons + onboarding dots
+  buttonSecondaryColor: '#C94F2E' // right gradient of main buttons
+}
+
 // Keep a single SDK instance across calls/components.
 let sdkInstance: any = null
 let pollTimer: ReturnType<typeof setInterval> | null = null
@@ -8,6 +18,8 @@ export const useShenAI = () => {
   const vitals = useVitals()
   const { phase } = useScanState()
   const progress = useState<number>('scanProgress', () => 0)
+  const measuring = useState<boolean>('measuring', () => false)
+  const finished = useState<boolean>('finished', () => false)
 
   async function initializeShenAI() {
     const apiKey = import.meta.env.VITE_SHENAI_API_KEY
@@ -29,24 +41,24 @@ export const useShenAI = () => {
       sdkInstance.deinitialize()
     }
     active = false
+    finished.value = false
+    measuring.value = false
+    progress.value = 0
 
-    // Custom UI: hide the SDK's built-in interface, onboarding, and on-canvas
-    // overlays so only the raw camera feed renders to the canvas "mxcanvas".
+    // Keep the SDK's built-in UI on the canvas and re-brand it below via
+    // setCustomColorTheme. Onboarding stays hidden.
     const result: any = await new Promise((resolve) => {
       sdkInstance.initialize(
         apiKey,
         'user123',
         {
-          showUserInterface: false,
+          showUserInterface: true,
           onboardingMode: sdkInstance.OnboardingMode.HIDDEN,
-          showFacePositioningOverlay: false,
-          showVisualWarnings: false,
-          showFaceMask: false,
-          showBloodFlow: false,
-          showSignalTile: false,
-          showSignalQualityIndicator: false,
-          showStartStopButton: false,
-          hideShenaiLogo: true
+          hideShenaiLogo: true,
+          showFaceMask: true,
+          showBloodFlow: true,
+          showFacePositioningOverlay: true,
+          enableSummaryScreen: false
         },
         resolve
       )
@@ -58,6 +70,8 @@ export const useShenAI = () => {
     }
 
     active = true
+    // Re-brand the SDK's built-in canvas UI.
+    sdkInstance.setCustomColorTheme(THEME)
     startPolling()
 
     return result
@@ -85,16 +99,22 @@ export const useShenAI = () => {
       if (metrics?.breathing_rate_bpm != null) {
         vitals.respiration.value = Math.round(metrics.breathing_rate_bpm)
       }
+      if (metrics?.hrv_sdnn_ms != null) {
+        vitals.hrv.value = Math.round(metrics.hrv_sdnn_ms)
+      }
 
       progress.value = Math.round(sdkInstance.getMeasurementProgressPercentage() ?? 0)
 
-      // getMeasurementResults() returns non-null once the measurement finishes.
+      // Show the metric tiles once a measurement is running (state 2..7).
+      const ms = sdkInstance.getMeasurementState()
+      measuring.value = !!ms && ms.value >= 2 && ms.value <= 7
+
+      // Mirror final values into the custom cards. The SDK summary screen is
+      // disabled, so we surface our own results screen on demand.
       const final = sdkInstance.getMeasurementResults()
       if (final) {
         applyResults(final)
-        stopPolling()
-        deinitialize()
-        phase.value = 'results'
+        finished.value = true
       }
     }, 500)
   }
@@ -105,6 +125,7 @@ export const useShenAI = () => {
     if (r.diastolic_blood_pressure_mmhg != null) vitals.diastolic.value = Math.round(r.diastolic_blood_pressure_mmhg)
     if (r.stress_index != null) vitals.stress.value = Math.round(r.stress_index * 100) / 100
     if (r.breathing_rate_bpm != null) vitals.respiration.value = Math.round(r.breathing_rate_bpm)
+    if (r.hrv_sdnn_ms != null) vitals.hrv.value = Math.round(r.hrv_sdnn_ms)
   }
 
   function stopPolling() {
@@ -122,15 +143,25 @@ export const useShenAI = () => {
     }
   }
 
+  // Move to the custom results screen, keeping the measured values.
+  function viewResults() {
+    stopPolling()
+    deinitialize()
+    phase.value = 'results'
+  }
+
   function stopShenAI() {
     stopPolling()
     deinitialize()
     progress.value = 0
+    measuring.value = false
+    finished.value = false
     vitals.heartRate.value = 0
     vitals.systolic.value = 0
     vitals.diastolic.value = 0
     vitals.stress.value = 0
     vitals.respiration.value = 0
+    vitals.hrv.value = 0
     phase.value = 'camera'
   }
 
@@ -138,7 +169,10 @@ export const useShenAI = () => {
     initialize: initializeShenAI,
     startMeasurement,
     stop: stopShenAI,
+    viewResults,
     progress,
+    measuring,
+    finished,
     sdk: () => sdkInstance
   }
 }

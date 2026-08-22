@@ -6,12 +6,14 @@ export const useVitals = () => {
   const diastolic = useState('diastolic', () => 0)
   const stress = useState('stress', () => 0)
   const respiration = useState('respiration', () => 0)
+  const hrv = useState('hrv', () => 0)
 
   return {
     heartRate,
     systolic,
     diastolic,
     stress,
-    respiration
+    respiration,
+    hrv
   }
 }

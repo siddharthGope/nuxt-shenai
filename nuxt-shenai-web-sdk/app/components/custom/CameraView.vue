@@ -10,7 +10,7 @@ async function start() {
   loading.value = true
   try {
     await initialize()
-    phase.value = 'guidance'
+    phase.value = 'scanning'
   } catch (e) {
     error.value = (e as Error).message
   } finally {
