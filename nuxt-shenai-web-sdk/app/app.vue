@@ -1,10 +1,28 @@
 <script setup lang="ts">
 const { phase } = useScanState()
-const { initialize, stop, measuring, finished, viewResults } = useShenAI()
+const {
+  initialize,
+  startMeasurement,
+  stopMeasurement,
+  stop,
+  viewResults,
+  progress,
+  measuring,
+  finished,
+  faceHint,
+  faceOk,
+  stream
+} = useShenAI()
 const { heartRate, systolic, diastolic, stress, hrv } = useVitals()
 
+const videoEl = ref<HTMLVideoElement | null>(null)
 const starting = ref(false)
 const error = ref('')
+
+// Bind our camera stream to the <video> preview.
+watch([stream, videoEl], ([s, el]) => {
+  if (el) el.srcObject = s ?? null
+}, { immediate: true })
 
 async function begin() {
   error.value = ''
@@ -27,8 +45,8 @@ function close() {
 
 <template>
   <div class="app">
-    <!-- Keep the phone frame (and #mxcanvas) mounted so the SDK's canvas
-         binding survives the results screen and re-scans work. -->
+    <!-- Keep the phone frame (and hidden #mxcanvas) mounted so the SDK's WebGL
+         context survives the results screen and re-scans work. -->
     <div v-show="phase !== 'results'" class="phone">
       <header class="topbar">
         <div>
@@ -42,9 +60,26 @@ function close() {
         </button>
       </header>
 
-      <!-- The branded SDK UI (camera + face mesh + brackets + START/STOP) renders here. -->
       <div class="stage">
-        <canvas id="mxcanvas" />
+        <!-- Our own camera preview -->
+        <video ref="videoEl" class="cam" autoplay playsinline muted />
+
+        <!-- Hidden canvas: the SDK needs a WebGL context but renders nothing. -->
+        <canvas id="mxcanvas" class="proc-canvas" />
+
+        <!-- Custom face-position guide -->
+        <div v-if="phase === 'scanning'" class="guide" :class="{ ok: faceOk }">
+          <span class="br tl" /><span class="br tr" />
+          <span class="br bl" /><span class="br br-c" />
+        </div>
+
+        <div v-if="phase === 'scanning' && faceHint" class="hint">
+          {{ faceHint }}
+        </div>
+
+        <div v-if="measuring" class="progress">
+          <span :style="{ width: progress + '%' }" />
+        </div>
       </div>
 
       <footer class="footer">
@@ -69,11 +104,18 @@ function close() {
 
         <p v-else class="instruction">
           Hold your phone at eye level in good lighting and look at the camera.
-          Tap <b>Start Scan</b> to begin.
         </p>
 
         <button v-if="phase === 'camera'" class="btn footer-btn" :disabled="starting" @click="begin">
           {{ starting ? 'Starting…' : 'Start Scan' }}
+        </button>
+
+        <button v-else-if="phase === 'scanning' && !measuring && !finished" class="btn footer-btn" @click="startMeasurement">
+          Start Measurement
+        </button>
+
+        <button v-else-if="measuring" class="btn btn-ghost footer-btn" @click="stopMeasurement">
+          Stop
         </button>
 
         <button v-if="finished" class="btn view-results" @click="viewResults">
@@ -189,24 +231,90 @@ body {
   width: 100%;
   aspect-ratio: 3 / 4;
   background: #000;
+  overflow: hidden;
 }
-#mxcanvas { width: 100%; height: 100%; display: block; }
+.cam {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transform: scaleX(-1); /* mirror for a natural selfie view */
+}
+/* Hidden processing canvas required by the SDK's WebGL context. */
+.proc-canvas {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  opacity: 0;
+  pointer-events: none;
+  left: 0;
+  top: 0;
+}
+
+/* Face-position guide (corner brackets). */
+.guide {
+  position: absolute;
+  inset: 12% 14%;
+  pointer-events: none;
+}
+.br {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--accent);
+  transition: border-color 0.2s ease;
+}
+.guide.ok .br { border-color: #22c55e; }
+.br.tl { top: 0; left: 0; border-right: none; border-bottom: none; border-top-left-radius: 8px; }
+.br.tr { top: 0; right: 0; border-left: none; border-bottom: none; border-top-right-radius: 8px; }
+.br.bl { bottom: 0; left: 0; border-right: none; border-top: none; border-bottom-left-radius: 8px; }
+.br.br-c { bottom: 0; right: 0; border-left: none; border-top: none; border-bottom-right-radius: 8px; }
+
+.hint {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.7);
+  color: #fff;
+  font-size: 0.85rem;
+  padding: 6px 14px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.progress {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 14px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.35);
+  overflow: hidden;
+}
+.progress span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
 .error { color: #dc2626; font-size: 0.85rem; text-align: center; padding: 8px 20px 0; }
 
 .footer { padding: 16px 18px 22px; }
 .footer-btn { width: 100%; }
 .view-results { width: 100%; margin-top: 14px; }
 .instruction {
-  margin: 0;
+  margin: 0 0 14px;
   text-align: center;
   color: var(--muted);
   line-height: 1.5;
 }
-.instruction b { color: var(--accent); }
 
 .metrics {
   display: grid;
   grid-template-columns: 1fr 1fr;
+  margin-bottom: 14px;
 }
 .metric {
   padding: 14px 12px;
