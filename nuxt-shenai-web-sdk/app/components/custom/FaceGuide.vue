@@ -9,16 +9,12 @@ function beginMeasurement() {
 </script>
 
 <template>
-  <div class="face-guide">
-    <h2>Position Your Face</h2>
-    <p>Keep your face centered in the frame and hold still.</p>
+  <div class="screen">
+    <h2>Position your face</h2>
+    <p class="sub">Center your face in the frame above and hold still. Good, even lighting improves accuracy.</p>
 
-    <button @click="beginMeasurement">
-      Begin Measurement
+    <button class="btn" @click="beginMeasurement">
+      Begin measurement
     </button>
   </div>
 </template>
-
-<style scoped>
-.face-guide { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0.75rem; }
-</style>

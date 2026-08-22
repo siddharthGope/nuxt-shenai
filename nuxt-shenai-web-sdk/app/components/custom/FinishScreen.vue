@@ -8,16 +8,31 @@ function newScan() {
 </script>
 
 <template>
-  <div class="finish-screen">
-    <h2>Scan Complete</h2>
-    <p>Your measurement has finished.</p>
+  <div class="screen">
+    <div class="badge">
+      <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M20 6 9 17l-5-5" />
+      </svg>
+    </div>
 
-    <button @click="newScan">
-      New Scan
+    <h2>Scan complete</h2>
+    <p class="sub">Your measurement finished successfully.</p>
+
+    <button class="btn" @click="newScan">
+      New scan
     </button>
   </div>
 </template>
 
 <style scoped>
-.finish-screen { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0.75rem; }
+.badge {
+  width: 66px;
+  height: 66px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: linear-gradient(180deg, var(--accent), var(--accent-dark));
+  box-shadow: 0 10px 24px rgba(16, 185, 129, 0.4);
+}
 </style>

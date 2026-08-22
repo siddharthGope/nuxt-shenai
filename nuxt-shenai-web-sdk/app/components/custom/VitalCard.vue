@@ -8,6 +8,7 @@ defineProps<{
 
 <template>
   <div class="vital-card">
+    <div class="icon"><slot name="icon" /></div>
     <span class="label">{{ label }}</span>
     <span class="value">
       {{ value }}<small v-if="unit"> {{ unit }}</small>
@@ -17,15 +18,20 @@ defineProps<{
 
 <style scoped>
 .vital-card {
-  border: 1px solid #e2e2e2;
-  border-radius: 12px;
-  padding: 16px 20px;
-  min-width: 140px;
+  flex: 1 1 130px;
+  min-width: 130px;
+  background: #f8fafc;
+  border: 1px solid #eef2f7;
+  border-radius: 16px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  align-items: flex-start;
 }
-.label { font-size: 0.75rem; color: #666; text-transform: uppercase; letter-spacing: 0.05em; }
-.value { font-size: 1.8rem; font-weight: 600; }
-.value small { font-size: 0.9rem; font-weight: 400; color: #888; }
+.icon { color: var(--accent); line-height: 0; }
+.icon:empty { display: none; }
+.label { font-size: 0.7rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.value { font-size: 1.7rem; font-weight: 700; line-height: 1; }
+.value small { font-size: 0.85rem; font-weight: 500; color: var(--muted); }
 </style>

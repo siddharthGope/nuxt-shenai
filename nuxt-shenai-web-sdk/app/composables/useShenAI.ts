@@ -23,15 +23,22 @@ export const useShenAI = () => {
       })
     }
 
-    // Custom UI: hide the SDK's built-in interface, keep the camera + face
-    // overlay rendered to the canvas with id "mxcanvas".
+    // Custom UI: hide the SDK's built-in interface and on-canvas overlays so
+    // only the raw camera feed renders to the canvas with id "mxcanvas".
     const result: any = await new Promise((resolve) => {
       sdkInstance.initialize(
         apiKey,
         'user123',
         {
           showUserInterface: false,
-          showFacePositioningOverlay: true
+          showFacePositioningOverlay: false,
+          showVisualWarnings: false,
+          showFaceMask: false,
+          showBloodFlow: false,
+          showSignalTile: false,
+          showSignalQualityIndicator: false,
+          showStartStopButton: false,
+          hideShenaiLogo: true
         },
         resolve
       )
