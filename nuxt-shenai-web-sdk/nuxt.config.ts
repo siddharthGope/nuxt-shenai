@@ -2,6 +2,9 @@
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: false },
+  // Use filename-based component names (no directory prefix) so components in
+  // app/components/custom are referenced as <CameraView>, <HeartRateCard>, etc.
+  components: [{ path: '~/components', pathPrefix: false }],
   routeRules: {
     '/**': {
       headers: {
