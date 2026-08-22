@@ -23,14 +23,22 @@ export const useShenAI = () => {
       })
     }
 
-    // Custom UI: hide the SDK's built-in interface and on-canvas overlays so
-    // only the raw camera feed renders to the canvas with id "mxcanvas".
+    // A repeated initialize() is a no-op while still initialized, so start fresh
+    // to ensure the settings below actually apply.
+    if (sdkInstance.isInitialized && sdkInstance.isInitialized()) {
+      sdkInstance.deinitialize()
+    }
+    active = false
+
+    // Custom UI: hide the SDK's built-in interface, onboarding, and on-canvas
+    // overlays so only the raw camera feed renders to the canvas "mxcanvas".
     const result: any = await new Promise((resolve) => {
       sdkInstance.initialize(
         apiKey,
         'user123',
         {
           showUserInterface: false,
+          onboardingMode: sdkInstance.OnboardingMode.HIDDEN,
           showFacePositioningOverlay: false,
           showVisualWarnings: false,
           showFaceMask: false,
