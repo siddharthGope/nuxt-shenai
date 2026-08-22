@@ -45,13 +45,6 @@ function close() {
       <!-- The branded SDK UI (camera + face mesh + brackets + START/STOP) renders here. -->
       <div class="stage">
         <canvas id="mxcanvas" />
-
-        <div v-if="phase === 'camera'" class="stage-overlay">
-          <button class="btn" :disabled="starting" @click="begin">
-            {{ starting ? 'Starting…' : 'Start' }}
-          </button>
-          <p v-if="error" class="error">{{ error }}</p>
-        </div>
       </div>
 
       <footer class="footer">
@@ -76,12 +69,18 @@ function close() {
 
         <p v-else class="instruction">
           Hold your phone at eye level in good lighting and look at the camera.
-          Tap <b>START</b> to begin.
+          Tap <b>Start Scan</b> to begin.
         </p>
+
+        <button v-if="phase === 'camera'" class="btn footer-btn" :disabled="starting" @click="begin">
+          {{ starting ? 'Starting…' : 'Start Scan' }}
+        </button>
 
         <button v-if="finished" class="btn view-results" @click="viewResults">
           View results
         </button>
+
+        <p v-if="error" class="error">{{ error }}</p>
       </footer>
     </div>
 
@@ -192,18 +191,10 @@ body {
   background: #000;
 }
 #mxcanvas { width: 100%; height: 100%; display: block; }
-.stage-overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-}
-.error { color: #fca5a5; font-size: 0.85rem; text-align: center; padding: 0 20px; }
+.error { color: #dc2626; font-size: 0.85rem; text-align: center; padding: 8px 20px 0; }
 
 .footer { padding: 16px 18px 22px; }
+.footer-btn { width: 100%; }
 .view-results { width: 100%; margin-top: 14px; }
 .instruction {
   margin: 0;

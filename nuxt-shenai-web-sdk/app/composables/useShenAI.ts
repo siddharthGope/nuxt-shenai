@@ -58,7 +58,15 @@ export const useShenAI = () => {
           showFaceMask: true,
           showBloodFlow: true,
           showFacePositioningOverlay: true,
-          enableSummaryScreen: false
+          enableSummaryScreen: false,
+          // The SDK's FINISH button fires USER_FLOW_FINISHED; route it to our page.
+          eventCallback: (event: string) => {
+            if (event === 'MEASUREMENT_FINISHED') {
+              finished.value = true
+            } else if (event === 'USER_FLOW_FINISHED') {
+              setTimeout(() => viewResults(), 0)
+            }
+          }
         },
         resolve
       )
