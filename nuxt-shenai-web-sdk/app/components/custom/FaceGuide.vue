@@ -1,9 +1,9 @@
 <script setup lang="ts">
 const { phase } = useScanState()
-const { startMeasurement } = useShenAI()
+const { customStartMeasurement } = useShenAI()
 
 function beginMeasurement() {
-  startMeasurement()
+  customStartMeasurement()
   phase.value = 'measuring'
 }
 </script>

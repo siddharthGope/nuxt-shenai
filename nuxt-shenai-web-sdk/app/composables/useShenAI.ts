@@ -1,6 +1,5 @@
 // Fully custom UI (Option 3): the SDK renders nothing. We own the camera
 // preview (a MediaStream shown in our own <video>) and draw all UI ourselves;
-// the SDK acts as a headless signal processor.
 
 let sdkInstance: any = null
 let pollTimer: ReturnType<typeof setInterval> | null = null
@@ -93,6 +92,7 @@ export const useShenAI = () => {
 
     // Re-init cleanly so settings apply and a new session starts.
     if (sdkInstance.isInitialized && sdkInstance.isInitialized()) {
+      console.info('[ShenAI] SDK deinitialized for re-initialization')
       sdkInstance.deinitialize()
     }
     active = false
@@ -142,9 +142,11 @@ export const useShenAI = () => {
     return result
   }
 
-  // startMeasurement() is a documented no-op until the SDK is ready (face
-  // detected in position), so surface that instead of silently doing nothing.
-  function startMeasurement() {
+  // OperatingMode drives measurement start: POSITIONING (default) tracks the face;
+  // MEASURE begins measuring once the face is in a proper position. startMeasurement()
+  // is a documented no-op until isReadyToStartMeasurement() is true, so surface that.
+  // https://developer.shen.ai/getting-started/configuration#measurement-settings
+  function customStartMeasurement() {
     if (!sdkInstance) return
     if (!sdkInstance.isReadyToStartMeasurement()) {
       faceHint.value = faceHint.value || 'Position your face in the frame'
@@ -152,12 +154,14 @@ export const useShenAI = () => {
     }
     progress.value = 0
     finished.value = false
+    sdkInstance.setOperatingMode(sdkInstance.OperatingMode.MEASURE)
     sdkInstance.startMeasurement()
   }
 
   function stopMeasurement() {
     if (!sdkInstance) return
     sdkInstance.stopMeasurement()
+    sdkInstance.setOperatingMode(sdkInstance.OperatingMode.POSITIONING)
     measuring.value = false
   }
 
@@ -181,8 +185,12 @@ export const useShenAI = () => {
         const ms0 = sdkInstance.getMeasurementState?.()
         const ready = sdkInstance.isReadyToStartMeasurement?.()
         const key = `${fs?.value}|${ms0?.value}|${ready}|${camErr?.value}|${camMode?.value}`
+
+        console.log('[ShenAI] key :', key)
+        console.log('[ShenAI] top lastLoggedKey :', lastLoggedKey)
         if (key !== lastLoggedKey) {
           lastLoggedKey = key
+          console.log('[ShenAI] bottom lastLoggedKey :', lastLoggedKey)
           console.info('[ShenAI] faceState:', fs?.value, 'measurementState:', ms0?.value, 'ready:', ready, 'cameraError:', camErr, 'cameraMode:', camMode)
         }
       }
@@ -272,7 +280,7 @@ export const useShenAI = () => {
 
   return {
     initialize: initializeShenAI,
-    startMeasurement,
+    customStartMeasurement,
     stopMeasurement,
     stop: stopShenAI,
     viewResults,

@@ -2,7 +2,7 @@
 const { phase } = useScanState()
 const {
   initialize,
-  startMeasurement,
+  customStartMeasurement,
   stopMeasurement,
   stop,
   viewResults,
@@ -32,8 +32,10 @@ async function begin() {
   try {
     await initialize()
     phase.value = 'scanning'
+    console.info("[ShenAI] SDK initialized successfully; phase set to 'scanning'")
   } catch (e) {
     error.value = (e as Error).message
+    console.error('[ShenAI] Failed to initialize:', e)
   } finally {
     starting.value = false
   }
@@ -121,9 +123,10 @@ function close() {
           v-else-if="phase === 'scanning' && !measuring && !finished"
           class="btn footer-btn"
           :disabled="!faceOk"
-          @click="startMeasurement"
+          @click="customStartMeasurement"
         >
-          {{ faceOk ? 'Start Measurement' : (faceHint || 'Position your face in the frame') }}
+        {{ faceOk }} {{ faceHint }}
+          {{ faceOk ? 'Start Measurement' : faceHint  }}
         </button>
 
         <button v-else-if="measuring" class="btn btn-ghost footer-btn" @click="stopMeasurement">
