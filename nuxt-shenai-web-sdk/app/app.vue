@@ -11,6 +11,8 @@ const {
   finished,
   faceHint,
   faceOk,
+  measurementHint,
+  measurementFailed,
   stream
 } = useShenAI()
 const { heartRate, systolic, diastolic, stress, hrv } = useVitals()
@@ -64,7 +66,8 @@ function close() {
         <!-- Our own camera preview -->
         <video ref="videoEl" class="cam" autoplay playsinline muted />
 
-        <!-- Hidden canvas: the SDK needs a WebGL context but renders nothing. -->
+        <!-- Hidden canvas: the SDK needs a WebGL context but renders nothing.
+             Its width/height are set at runtime to match the real camera stream. -->
         <canvas id="mxcanvas" class="proc-canvas" />
 
         <!-- Custom face-position guide -->
@@ -73,8 +76,12 @@ function close() {
           <span class="br bl" /><span class="br br-c" />
         </div>
 
-        <div v-if="phase === 'scanning' && faceHint" class="hint">
+        <div v-if="phase === 'scanning' && !measuring && faceHint" class="hint">
           {{ faceHint }}
+        </div>
+
+        <div v-if="measuring && measurementHint" class="hint" :class="{ warn: measurementFailed }">
+          {{ measurementHint }}
         </div>
 
         <div v-if="measuring" class="progress">
@@ -110,8 +117,13 @@ function close() {
           {{ starting ? 'Starting…' : 'Start Scan' }}
         </button>
 
-        <button v-else-if="phase === 'scanning' && !measuring && !finished" class="btn footer-btn" @click="startMeasurement">
-          Start Measurement
+        <button
+          v-else-if="phase === 'scanning' && !measuring && !finished"
+          class="btn footer-btn"
+          :disabled="!faceOk"
+          @click="startMeasurement"
+        >
+          {{ faceOk ? 'Start Measurement' : (faceHint || 'Position your face in the frame') }}
         </button>
 
         <button v-else-if="measuring" class="btn btn-ghost footer-btn" @click="stopMeasurement">
@@ -240,15 +252,16 @@ body {
   display: block;
   transform: scaleX(-1); /* mirror for a natural selfie view */
 }
-/* Hidden processing canvas required by the SDK's WebGL context. */
+/* Hidden processing canvas required by the SDK's WebGL context. Positioned
+   off-screen (NOT shrunk via CSS width/height) so its visible/client size
+   still matches its real drawing-buffer resolution — some WebGL viewports are
+   sized from clientWidth/clientHeight, and a near-0px CSS size can collapse
+   that viewport, breaking frame processing entirely. */
 .proc-canvas {
-  position: absolute;
-  width: 2px;
-  height: 2px;
-  opacity: 0;
+  position: fixed;
+  left: -99999px;
+  top: -99999px;
   pointer-events: none;
-  left: 0;
-  top: 0;
 }
 
 /* Face-position guide (corner brackets). */
@@ -282,6 +295,7 @@ body {
   border-radius: 999px;
   white-space: nowrap;
 }
+.hint.warn { background: rgba(220, 38, 38, 0.85); }
 .progress {
   position: absolute;
   left: 14px;

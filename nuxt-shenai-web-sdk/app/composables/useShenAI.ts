@@ -22,6 +22,18 @@ const FACE_HINTS: Record<number, string> = {
   6: 'Position your face in the frame'
 }
 
+// MeasurementState enum -> on-screen warning. 0 NOT_STARTED, 1 WAITING_FOR_FACE,
+// 2 RUNNING_SIGNAL_SHORT, 3 RUNNING_SIGNAL_GOOD, 4 RUNNING_SIGNAL_BAD,
+// 5 RUNNING_SIGNAL_BAD_DEVICE_UNSTABLE, 6 FINALIZING, 7 FINISHED, 8 FAILED.
+const MEASUREMENT_HINTS: Record<number, string> = {
+  1: 'Waiting for your face…',
+  2: 'Hold still, analyzing…',
+  4: 'Signal quality is low — hold still in good, even lighting',
+  5: 'Device is unstable — hold your phone steady',
+  6: 'Finalizing your results…',
+  8: 'Measurement failed — please try again'
+}
+
 export const useShenAI = () => {
   const { $createShenaiSDK } = useNuxtApp()
   const vitals = useVitals()
@@ -31,6 +43,8 @@ export const useShenAI = () => {
   const finished = useState<boolean>('finished', () => false)
   const faceHint = useState<string>('faceHint', () => '')
   const faceOk = useState<boolean>('faceOk', () => false)
+  const measurementHint = useState<string>('measurementHint', () => '')
+  const measurementFailed = useState<boolean>('measurementFailed', () => false)
 
   async function initializeShenAI() {
     const apiKey = import.meta.env.VITE_SHENAI_API_KEY
@@ -39,12 +53,35 @@ export const useShenAI = () => {
     }
 
     // 1. Acquire the camera ourselves — in fully custom mode we own the preview.
+    // Let the device report its natural resolution (most webcams are landscape;
+    // forcing a portrait "ideal" size is usually ignored by the hardware anyway).
     if (!mediaStream) {
       mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 960 } },
+        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: false
       })
       cameraStream.value = mediaStream
+
+      // getUserMedia() resolving doesn't guarantee a decoded frame yet; wait for
+      // the track to actually report real dimensions before handing it to the SDK.
+      const t = mediaStream.getVideoTracks()[0]
+      for (let i = 0; i < 20 && !t.getSettings().width; i++) {
+        await new Promise((r) => setTimeout(r, 50))
+      }
+    }
+
+    // Size the hidden processing canvas to match the ACTUAL stream resolution.
+    // A mismatched canvas size (e.g. default 300x150) makes the SDK's frame
+    // cropping look at the wrong region, so the face is never detected.
+    const track = mediaStream.getVideoTracks()[0]
+    const settings = track?.getSettings?.() ?? {}
+    const canvasEl = document.getElementById('mxcanvas') as HTMLCanvasElement | null
+    if (canvasEl && settings.width && settings.height) {
+      canvasEl.width = settings.width
+      canvasEl.height = settings.height
+    }
+    if (import.meta.dev) {
+      console.info('[ShenAI] camera track settings:', settings, 'canvas size:', canvasEl?.width, canvasEl?.height)
     }
 
     // 2. Create the SDK. It still needs a (hidden) #mxcanvas for its WebGL context.
@@ -63,7 +100,8 @@ export const useShenAI = () => {
     measuring.value = false
     progress.value = 0
 
-    // 3. Fully custom: no SDK UI, camera supplied as a MediaStream.
+    // 3. Fully custom: no SDK UI. Matching the official webrtc example order:
+    // initialize() first (no cameraMode override), then attach the MediaStream.
     const result: any = await new Promise((resolve) => {
       sdkInstance.initialize(
         apiKey,
@@ -71,7 +109,9 @@ export const useShenAI = () => {
         {
           showUserInterface: false,
           onboardingMode: sdkInstance.OnboardingMode.HIDDEN,
-          cameraMode: sdkInstance.CameraMode.MEDIA_STREAM,
+          // Skip the SDK's default portrait-oriented crop; process the raw
+          // stream frame as-is (our stream's real aspect ratio may be landscape).
+          enableFullFrameProcessing: true,
           eventCallback: (event: string) => {
             if (event === 'MEASUREMENT_FINISHED') finished.value = true
           }
@@ -81,23 +121,37 @@ export const useShenAI = () => {
     })
 
     // InitializationResult.OK === 0
-    if (result?.value !== 0) {
-      throw new Error('SDK initialization failed (code ' + result?.value + ')')
+    const resultCode = typeof result === 'number' ? result : result?.value
+    if (resultCode !== 0) {
+      throw new Error('SDK initialization failed: ' + JSON.stringify(result))
     }
 
     active = true
-    // 4. Feed our camera stream to the SDK for processing.
+    // 4. Attach our camera stream now that the SDK is initialized (this is what
+    // actually switches the SDK into MediaStream camera mode).
     sdkInstance.setMediaStream(mediaStream, true)
+
+    if (import.meta.dev) {
+      console.info(
+        '[ShenAI] after setMediaStream -> cameraMode:', sdkInstance.getCameraMode?.(),
+        'lastCameraError:', sdkInstance.getLastCameraError?.()
+      )
+    }
 
     startPolling()
     return result
   }
 
+  // startMeasurement() is a documented no-op until the SDK is ready (face
+  // detected in position), so surface that instead of silently doing nothing.
   function startMeasurement() {
     if (!sdkInstance) return
+    if (!sdkInstance.isReadyToStartMeasurement()) {
+      faceHint.value = faceHint.value || 'Position your face in the frame'
+      return
+    }
     progress.value = 0
     finished.value = false
-    sdkInstance.setOperatingMode(sdkInstance.OperatingMode.MEASURE)
     sdkInstance.startMeasurement()
   }
 
@@ -108,6 +162,7 @@ export const useShenAI = () => {
   }
 
   // Poll face state, realtime metrics and progress into shared state.
+  let lastLoggedKey = ''
   function startPolling() {
     stopPolling()
     pollTimer = setInterval(() => {
@@ -117,6 +172,19 @@ export const useShenAI = () => {
       if (fs) {
         faceOk.value = fs.value === 0
         faceHint.value = FACE_HINTS[fs.value] ?? ''
+      }
+
+      // Dev diagnostics: log only when something meaningful changes.
+      if (import.meta.dev) {
+        const camErr = sdkInstance.getLastCameraError?.()
+        const camMode = sdkInstance.getCameraMode?.()
+        const ms0 = sdkInstance.getMeasurementState?.()
+        const ready = sdkInstance.isReadyToStartMeasurement?.()
+        const key = `${fs?.value}|${ms0?.value}|${ready}|${camErr?.value}|${camMode?.value}`
+        if (key !== lastLoggedKey) {
+          lastLoggedKey = key
+          console.info('[ShenAI] faceState:', fs?.value, 'measurementState:', ms0?.value, 'ready:', ready, 'cameraError:', camErr, 'cameraMode:', camMode)
+        }
       }
 
       const hr = sdkInstance.getRealtimeHeartRate()
@@ -132,6 +200,8 @@ export const useShenAI = () => {
 
       const ms = sdkInstance.getMeasurementState()
       measuring.value = !!ms && ms.value >= 2 && ms.value <= 7
+      measurementHint.value = MEASUREMENT_HINTS[ms?.value] ?? ''
+      measurementFailed.value = ms?.value === 8
 
       const final = sdkInstance.getMeasurementResults()
       if (final) {
@@ -189,6 +259,8 @@ export const useShenAI = () => {
     finished.value = false
     faceHint.value = ''
     faceOk.value = false
+    measurementHint.value = ''
+    measurementFailed.value = false
     vitals.heartRate.value = 0
     vitals.systolic.value = 0
     vitals.diastolic.value = 0
@@ -209,6 +281,8 @@ export const useShenAI = () => {
     finished,
     faceHint,
     faceOk,
+    measurementHint,
+    measurementFailed,
     stream: cameraStream,
     sdk: () => sdkInstance
   }
