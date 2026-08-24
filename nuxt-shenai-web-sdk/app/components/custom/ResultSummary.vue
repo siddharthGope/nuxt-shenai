@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const { phase } = useScanState()
-const { stop, initialize } = useShenAI()
+const { stop, initialize } = useShenAICustomUI()
 const { heartRate, systolic, diastolic, stress, hrv } = useVitals()
 
 type Status = { label: string; tone: 'good' | 'warn' | 'bad' }

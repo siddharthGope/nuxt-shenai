@@ -2,19 +2,16 @@
 const { phase } = useScanState()
 const {
   initialize,
-  customStartMeasurement,
+  startMeasurement,
   stopMeasurement,
   stop,
-  viewResults,
   progress,
   measuring,
-  finished,
   faceHint,
   faceOk,
-  measurementHint,
-  measurementFailed,
+  ready,
   stream
-} = useShenAI()
+} = useShenAICustomUI()
 const { heartRate, systolic, diastolic, stress, hrv } = useVitals()
 
 const videoEl = ref<HTMLVideoElement | null>(null)
@@ -82,17 +79,13 @@ function close() {
           {{ faceHint }}
         </div>
 
-        <div v-if="measuring && measurementHint" class="hint" :class="{ warn: measurementFailed }">
-          {{ measurementHint }}
-        </div>
-
         <div v-if="measuring" class="progress">
           <span :style="{ width: progress + '%' }" />
         </div>
       </div>
 
       <footer class="footer">
-        <div v-if="measuring || finished" class="metrics">
+        <div v-if="measuring" class="metrics">
           <div class="metric">
             <span class="k">PULSE</span>
             <span class="v">{{ heartRate }}<small>bpm</small></span>
@@ -120,21 +113,16 @@ function close() {
         </button>
 
         <button
-          v-else-if="phase === 'scanning' && !measuring && !finished"
+          v-else-if="phase === 'scanning' && !measuring"
           class="btn footer-btn"
-          :disabled="!faceOk"
-          @click="customStartMeasurement"
+          :disabled="!ready"
+          @click="startMeasurement"
         >
-        
-          {{ faceOk ? 'Start Measurement' : faceHint  }}
+          {{ ready ? 'Start Measurement' : faceHint }}
         </button>
 
         <button v-else-if="measuring" class="btn btn-ghost footer-btn" @click="stopMeasurement">
           Stop
-        </button>
-
-        <button v-if="finished" class="btn view-results" @click="viewResults">
-          View results
         </button>
 
         <p v-if="error" class="error">{{ error }}</p>
@@ -249,21 +237,24 @@ body {
   overflow: hidden;
 }
 .cam {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  display: block;
+  z-index: 2;
   transform: scaleX(-1); /* mirror for a natural selfie view */
 }
-/* Hidden processing canvas required by the SDK's WebGL context. Positioned
-   off-screen (NOT shrunk via CSS width/height) so its visible/client size
-   still matches its real drawing-buffer resolution — some WebGL viewports are
-   sized from clientWidth/clientHeight, and a near-0px CSS size can collapse
-   that viewport, breaking frame processing entirely. */
+/* The SDK's WebGL frame pipeline only runs when this canvas is genuinely
+   on-screen (moving it off-screen via -99999px silently stops frame
+   processing, even though cameraMode/getLastCameraError look fine). Keep it
+   in-viewport at real size, just pixel-covered by our own <video> on top. */
 .proc-canvas {
-  position: fixed;
-  left: -99999px;
-  top: -99999px;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
   pointer-events: none;
 }
 
@@ -271,6 +262,7 @@ body {
 .guide {
   position: absolute;
   inset: 12% 14%;
+  z-index: 3;
   pointer-events: none;
 }
 .br {
@@ -291,6 +283,7 @@ body {
   top: 14px;
   left: 50%;
   transform: translateX(-50%);
+  z-index: 3;
   background: rgba(15, 23, 42, 0.7);
   color: #fff;
   font-size: 0.85rem;
@@ -307,6 +300,7 @@ body {
   height: 6px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.35);
+  z-index: 3;
   overflow: hidden;
 }
 .progress span {

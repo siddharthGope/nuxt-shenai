@@ -112,6 +112,7 @@ export const useShenAI = () => {
           // Skip the SDK's default portrait-oriented crop; process the raw
           // stream frame as-is (our stream's real aspect ratio may be landscape).
           enableFullFrameProcessing: true,
+          cameraMode : mediaStream ? sdkInstance.CameraMode.MEDIA_STREAM : sdkInstance.CameraMode.WEBCAM,
           eventCallback: (event: string) => {
             if (event === 'MEASUREMENT_FINISHED') finished.value = true
           }
