@@ -125,7 +125,7 @@ function close() {
           :disabled="!faceOk"
           @click="customStartMeasurement"
         >
-        {{ faceOk }} {{ faceHint }}
+        
           {{ faceOk ? 'Start Measurement' : faceHint  }}
         </button>
 

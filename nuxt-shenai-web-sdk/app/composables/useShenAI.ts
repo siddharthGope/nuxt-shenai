@@ -18,7 +18,7 @@ const FACE_HINTS: Record<number, string> = {
   3: 'Center your face',
   4: 'Position your face in the frame',
   5: 'Look at the camera',
-  6: 'Position your face in the frame'
+  6: 'Position your face in the frame1'
 }
 
 // MeasurementState enum -> on-screen warning. 0 NOT_STARTED, 1 WAITING_FOR_FACE,
@@ -148,14 +148,18 @@ export const useShenAI = () => {
   // https://developer.shen.ai/getting-started/configuration#measurement-settings
   function customStartMeasurement() {
     if (!sdkInstance) return
+
+
     if (!sdkInstance.isReadyToStartMeasurement()) {
       faceHint.value = faceHint.value || 'Position your face in the frame'
+      console.warn('[ShenAI] !sdkInstance.isReadyToStartMeasurement() startMeasurement() called but SDK is not ready; faceHint:', faceHint.value)
       return
     }
     progress.value = 0
     finished.value = false
     sdkInstance.setOperatingMode(sdkInstance.OperatingMode.MEASURE)
     sdkInstance.startMeasurement()
+    console.log('[ShenAI] customStartMeasurement() called; SDK operatingMode set to MEASURE')
   }
 
   function stopMeasurement() {
@@ -173,6 +177,9 @@ export const useShenAI = () => {
       if (!sdkInstance) return
 
       const fs = sdkInstance.getFaceState()
+
+      console.log("Face values", fs);
+      
       if (fs) {
         faceOk.value = fs.value === 0
         faceHint.value = FACE_HINTS[fs.value] ?? ''
@@ -186,11 +193,11 @@ export const useShenAI = () => {
         const ready = sdkInstance.isReadyToStartMeasurement?.()
         const key = `${fs?.value}|${ms0?.value}|${ready}|${camErr?.value}|${camMode?.value}`
 
-        console.log('[ShenAI] key :', key)
-        console.log('[ShenAI] top lastLoggedKey :', lastLoggedKey)
+        // console.log('[ShenAI] key :', key)
+        // console.log('[ShenAI] top lastLoggedKey :', lastLoggedKey)
         if (key !== lastLoggedKey) {
           lastLoggedKey = key
-          console.log('[ShenAI] bottom lastLoggedKey :', lastLoggedKey)
+          // console.log('[ShenAI] bottom lastLoggedKey :', lastLoggedKey)
           console.info('[ShenAI] faceState:', fs?.value, 'measurementState:', ms0?.value, 'ready:', ready, 'cameraError:', camErr, 'cameraMode:', camMode)
         }
       }
