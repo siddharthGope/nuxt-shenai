@@ -149,6 +149,7 @@ export const useShenAICustomUI = () => {
           // SDK sits on its onboarding/disclaimer screen and never starts
           // processing frames, so getFaceState() stays UNKNOWN.
           uiFlowScreens: [measurementScreen],
+          localMemoryEnabled: true,
           enableFullFrameProcessing: true
         },
         resolve
@@ -233,6 +234,14 @@ export const useShenAICustomUI = () => {
     })
 
     return sdk.computeHealthRisks(factors)
+  }
+
+  function getMeasurementHistory() {
+    if (!sdk?.isInitialized?.()) {
+      throw new Error('Shen.AI SDK must be initialized before reading measurement history.')
+    }
+
+    return sdk.getMeasurementResultsHistory?.() ?? null
   }
 
   // Poll face state + measurement progress; move to results on FINISHED.
@@ -364,6 +373,7 @@ export const useShenAICustomUI = () => {
     startMeasurement,
     stopMeasurement,
     computeHealthRisks,
+    getMeasurementHistory,
     stop,
     faceHint,
     faceOk,
