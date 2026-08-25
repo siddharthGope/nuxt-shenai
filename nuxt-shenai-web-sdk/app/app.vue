@@ -51,7 +51,9 @@ function close() {
 
 <template>
   <div class="app">
-    <ConsentScreen v-if="phase === 'consent'" @continue="continueFromConsent" />
+
+    <ResultSummary />
+    <!-- <ConsentScreen v-if="phase === 'consent'" @continue="continueFromConsent" /> -->
 
     <!-- Keep the phone frame (and hidden #mxcanvas) mounted so the SDK's WebGL
          context survives the results screen and re-scans work. -->
@@ -137,6 +139,7 @@ function close() {
     </div>
 
     <ResultSummary v-if="phase === 'results'" />
+    
   </div>
 </template>
 

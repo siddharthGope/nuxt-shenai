@@ -52,6 +52,17 @@ const riskCards = [
   'Hypertension Risk'
 ]
 
+const showCardioRiskForm = ref(false)
+const cardioRiskForm = reactive({
+  smoker: '',
+  diabetes: '',
+  treatedBp: '',
+  totalCholesterol: '',
+  hdl: '',
+  height: '',
+  weight: ''
+})
+
 const insight = computed(() => {
   const bpRaised = bpStatus.value.tone !== 'good'
   const stressRaised = stressStatus.value.tone !== 'good'
@@ -64,6 +75,16 @@ const insight = computed(() => {
 function close() {
   // Return to the start screen.
   stop()
+}
+
+function openRiskCard(card: string) {
+  if (card === 'Cardiovascular Disease Risk') {
+    showCardioRiskForm.value = true
+  }
+}
+
+function submitCardioRiskForm() {
+  showCardioRiskForm.value = false
 }
 
 async function scanAgain() {
@@ -147,7 +168,7 @@ async function scanAgain() {
       <p class="insight">{{ insight }}</p>
 
       <div class="risk-list" aria-label="Risk assessment information">
-        <button v-for="card in riskCards" :key="card" class="risk-card" type="button">
+        <button v-for="card in riskCards" :key="card" class="risk-card" type="button" @click="openRiskCard(card)">
           <svg class="risk-lock" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <rect x="5" y="11" width="14" height="10" rx="2" />
             <path d="M8 11V8a4 4 0 0 1 8 0v3" />
@@ -167,6 +188,66 @@ async function scanAgain() {
           <button class="secondary-action" type="button">Explore Wellness Hub</button>
         </div>
       </section>
+    </div>
+
+    <div v-if="showCardioRiskForm" class="risk-modal" role="dialog" aria-modal="true" aria-labelledby="cardio-risk-title" @click.self="showCardioRiskForm = false">
+      <form class="risk-sheet" @submit.prevent="submitCardioRiskForm">
+        <h3 id="cardio-risk-title">Missing Information</h3>
+        <p>A few more details to calculate your Cardiovascular Risk Score.</p>
+
+        <div class="risk-chips" aria-label="Known details">
+          <span>Age <b>46</b></span>
+          <span>Gender <b>Male</b></span>
+          <span>Systolic BP <b>{{ systolic }} mmHg</b></span>
+        </div>
+
+        <fieldset class="choice-group">
+          <legend>Current Smoker</legend>
+          <div class="choice-row">
+            <button type="button" :class="{ selected: cardioRiskForm.smoker === 'yes' }" @click="cardioRiskForm.smoker = 'yes'">Yes</button>
+            <button type="button" :class="{ selected: cardioRiskForm.smoker === 'no' }" @click="cardioRiskForm.smoker = 'no'">No</button>
+          </div>
+        </fieldset>
+
+        <fieldset class="choice-group">
+          <legend>Diabetes</legend>
+          <div class="choice-row">
+            <button type="button" :class="{ selected: cardioRiskForm.diabetes === 'yes' }" @click="cardioRiskForm.diabetes = 'yes'">Yes</button>
+            <button type="button" :class="{ selected: cardioRiskForm.diabetes === 'no' }" @click="cardioRiskForm.diabetes = 'no'">No</button>
+          </div>
+        </fieldset>
+
+        <fieldset class="choice-group">
+          <legend>Treated for High Blood Pressure</legend>
+          <div class="choice-row">
+            <button type="button" :class="{ selected: cardioRiskForm.treatedBp === 'yes' }" @click="cardioRiskForm.treatedBp = 'yes'">Yes</button>
+            <button type="button" :class="{ selected: cardioRiskForm.treatedBp === 'no' }" @click="cardioRiskForm.treatedBp = 'no'">No</button>
+          </div>
+        </fieldset>
+
+        <div class="risk-input-grid">
+          <label>
+            <span>Total Cholesterol (mg/dL)</span>
+            <input v-model="cardioRiskForm.totalCholesterol" inputmode="numeric" placeholder="e.g. 180" />
+          </label>
+          <label>
+            <span>HDL (mg/dL)</span>
+            <input v-model="cardioRiskForm.hdl" inputmode="numeric" placeholder="e.g. 50" />
+          </label>
+          <label>
+            <span>Height (cm)</span>
+            <input v-model="cardioRiskForm.height" inputmode="numeric" placeholder="e.g. 165" />
+          </label>
+          <label>
+            <span>Weight (kg)</span>
+            <input v-model="cardioRiskForm.weight" inputmode="numeric" placeholder="e.g. 68" />
+          </label>
+        </div>
+
+        <p class="risk-note">Cholesterol and HDL give the most accurate score; height and weight (BMI) can be used instead if you do not have lab values on hand.</p>
+
+        <button class="submit-risk" type="submit">Submit</button>
+      </form>
     </div>
 
     <div class="ask-bar">
@@ -198,6 +279,7 @@ async function scanAgain() {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 .p-top {
@@ -355,6 +437,146 @@ async function scanAgain() {
   text-transform: uppercase;
 }
 .risk-card small { color: #d45b0a; font-weight: 700; font-size: 0.82rem; }
+
+.risk-modal {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(0, 0, 0, 0.38);
+}
+
+.risk-sheet {
+  width: 100%;
+  max-height: calc(100% - 78px);
+  overflow-y: auto;
+  padding: 20px 28px 10px;
+  border: 0;
+  border-radius: 22px 22px 0 0;
+  background: #fff;
+  color: #14202b;
+  box-shadow: 0 -18px 34px rgba(15, 23, 42, 0.18);
+}
+
+.risk-sheet h3 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+  color: #001a33;
+}
+
+.risk-sheet > p {
+  margin: 0 0 14px;
+  color: #5b6470;
+  font-size: 0.86rem;
+  line-height: 1.35;
+}
+
+.risk-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.risk-chips span {
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #f5f5f6;
+  color: #656a70;
+  font-size: 0.76rem;
+}
+
+.risk-chips b { color: #1f2937; }
+
+.choice-group {
+  padding: 0;
+  margin: 0 0 14px;
+  border: 0;
+}
+
+.choice-group legend {
+  margin-bottom: 9px;
+  color: #14202b;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.choice-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.choice-row button {
+  height: 32px;
+  border: 1px solid #d8dde3;
+  border-radius: 999px;
+  background: #fff;
+  color: #001a33;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.choice-row button.selected {
+  border-color: #001a33;
+  background: #001a33;
+  color: #fff;
+}
+
+.risk-input-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.risk-input-grid label {
+  display: grid;
+  gap: 6px;
+}
+
+.risk-input-grid span {
+  color: #6b7280;
+  font-size: 0.75rem;
+}
+
+.risk-input-grid input {
+  width: 100%;
+  height: 42px;
+  border: 1px solid #d9dee5;
+  border-radius: 10px;
+  padding: 0 13px;
+  color: #14202b;
+  font: inherit;
+  font-size: 0.86rem;
+  outline: none;
+}
+
+.risk-input-grid input:focus {
+  border-color: #001a33;
+}
+
+.risk-note {
+  margin: 14px 0 10px !important;
+  color: #858585 !important;
+  font-size: 0.72rem !important;
+  line-height: 1.35 !important;
+}
+
+.submit-risk {
+  width: 100%;
+  height: 32px;
+  border: 0;
+  border-radius: 999px;
+  background: #001a33;
+  color: #fff;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 800;
+  cursor: pointer;
+}
 
 .next-steps { margin-top: 12px; }
 .next-steps h3 {
