@@ -46,6 +46,21 @@ const wellness = computed(() =>
   )
 )
 
+const riskCards = [
+  'Cardiovascular Disease Risk',
+  'Diabetes Risk',
+  'Hypertension Risk'
+]
+
+const insight = computed(() => {
+  const bpRaised = bpStatus.value.tone !== 'good'
+  const stressRaised = stressStatus.value.tone !== 'good'
+  if (bpRaised && stressRaised) return "Your blood pressure and stress level are both a touch elevated; let's keep an eye on those."
+  if (bpRaised) return "Your blood pressure is a touch elevated; let's keep an eye on it."
+  if (stressRaised) return "Your stress level is a touch elevated; let's keep an eye on it."
+  return "Your key vitals are looking steady; keep tracking them over time."
+})
+
 function close() {
   // Return to the start screen.
   stop()
@@ -128,20 +143,46 @@ async function scanAgain() {
           <div class="mc-status" :class="stressStatus.tone"><span class="dot" />{{ stressStatus.label }}</div>
         </div>
       </div>
+
+      <p class="insight">{{ insight }}</p>
+
+      <div class="risk-list" aria-label="Risk assessment information">
+        <button v-for="card in riskCards" :key="card" class="risk-card" type="button">
+          <svg class="risk-lock" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="5" y="11" width="14" height="10" rx="2" />
+            <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+          </svg>
+          <span>
+            <strong>{{ card }}</strong>
+            <small>Missing information</small>
+          </span>
+        </button>
+      </div>
+
+      <section class="next-steps" aria-labelledby="next-steps-title">
+        <h3 id="next-steps-title">Next Steps</h3>
+        <p>Book a doctor or explore your Wellness Hub for personalised guidance.</p>
+        <div class="next-actions">
+          <button class="primary-action" type="button">See a Doctor</button>
+          <button class="secondary-action" type="button">Explore Wellness Hub</button>
+        </div>
+      </section>
     </div>
 
     <div class="ask-bar">
-      <button class="ask-menu" aria-label="Menu">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-          <path d="M4 7h16M4 12h16M4 17h16" />
-        </svg>
-      </button>
       <span class="ask-ph">Ask Lumi AI</span>
-      <button class="ask-mic" aria-label="Voice">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-          <path d="M8 6v12M12 3v18M16 8v8M20 11v2M4 10v4" />
-        </svg>
-      </button>
+      <div class="ask-actions">
+        <button class="ask-menu" aria-label="Menu">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M4 7h16M4 12h16M4 17h16" />
+          </svg>
+        </button>
+        <button class="ask-mic" aria-label="Voice">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M8 6v12M12 3v18M16 8v8M20 11v2M4 10v4" />
+          </svg>
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -150,6 +191,7 @@ async function scanAgain() {
 .profile {
   width: 100%;
   max-width: 400px;
+  max-height: calc(100vh - 32px);
   background: var(--surface);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
@@ -184,7 +226,10 @@ async function scanAgain() {
   place-items: center;
 }
 
-.p-body { padding: 4px 20px 20px; }
+.p-body {
+  padding: 4px 20px 24px;
+  overflow-y: auto;
+}
 
 .hero { display: flex; align-items: center; gap: 10px; }
 .check {
@@ -274,35 +319,121 @@ async function scanAgain() {
 .mc-status.warn .dot { background: #f59e0b; }
 .mc-status.bad .dot { background: #dc2626; }
 
-.ask-bar {
+.insight {
+  margin: 18px 0 16px;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.risk-list {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.risk-card {
+  width: 100%;
+  min-height: 62px;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  background: #fff;
+  color: #c8520b;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   padding: 14px 18px;
-  border-top: 1px solid #eef2f7;
-  background: #fafbfc;
+  text-align: left;
+  cursor: pointer;
 }
+
+.risk-lock { flex: none; }
+.risk-card span { display: grid; gap: 3px; }
+.risk-card strong {
+  color: #858585;
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.risk-card small { color: #d45b0a; font-weight: 700; font-size: 0.82rem; }
+
+.next-steps { margin-top: 12px; }
+.next-steps h3 {
+  margin: 0 0 10px;
+  font-size: 1.05rem;
+  color: #071d33;
+}
+.next-steps p {
+  margin: 0 0 16px;
+  color: #2b2f35;
+  line-height: 1.45;
+}
+
+.next-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.primary-action,
+.secondary-action {
+  border-radius: 999px;
+  padding: 11px 18px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.primary-action {
+  border: 1px solid #001a33;
+  background: #001a33;
+  color: #fff;
+}
+
+.secondary-action {
+  flex: 1;
+  border: 1px solid #001a33;
+  background: #fff;
+  color: #001a33;
+}
+
+.ask-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 0 12px 10px;
+  padding: 18px 18px 14px;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 -10px 30px rgba(15, 23, 42, 0.08);
+}
+.ask-actions { display: flex; align-items: center; justify-content: space-between; }
 .ask-menu {
-  width: 38px;
-  height: 38px;
+  width: 46px;
+  height: 46px;
   border-radius: 50%;
   border: none;
-  background: #eef2f7;
+  background: #f3f3f3;
   color: var(--text);
   display: grid;
   place-items: center;
   cursor: pointer;
 }
-.ask-ph { flex: 1; color: var(--muted); }
+.ask-ph { color: #868686; }
 .ask-mic {
-  width: 42px;
-  height: 42px;
+  width: 46px;
+  height: 46px;
   border-radius: 50%;
   border: none;
-  background: #0f172a;
+  background: #001a33;
   color: #fff;
   display: grid;
   place-items: center;
   cursor: pointer;
+}
+
+@media (max-width: 380px) {
+  .next-actions { flex-direction: column; }
+  .primary-action,
+  .secondary-action { width: 100%; }
 }
 </style>

@@ -34,6 +34,26 @@ const FACE_HINTS: Record<number, string> = {
   6: 'Position your face in the frame'
 }
 
+type VitalsResult = {
+  heartRate: number
+  systolic: number
+  diastolic: number
+  bloodPressure: string
+  hrv: number
+  stress: number
+  breathingRate: number
+}
+
+const emptyVitalsResult = (): VitalsResult => ({
+  heartRate: 0,
+  systolic: 0,
+  diastolic: 0,
+  bloodPressure: '0/0',
+  hrv: 0,
+  stress: 0,
+  breathingRate: 0
+})
+
 export const useShenAICustomUI = () => {
   const { $createShenaiSDK } = useNuxtApp()
   const { phase } = useScanState()
@@ -44,6 +64,7 @@ export const useShenAICustomUI = () => {
   const ready = useState<boolean>('cui_ready', () => false)
   const measuring = useState<boolean>('cui_measuring', () => false)
   const progress = useState<number>('cui_progress', () => 0)
+  const vitalsResult = useState<VitalsResult>('cui_vitalsResult', emptyVitalsResult)
 
   async function initialize() {
     const apiKey = import.meta.env.VITE_SHENAI_API_KEY
@@ -63,7 +84,11 @@ export const useShenAICustomUI = () => {
     // Size the SDK's #mxcanvas backing store to the ACTUAL stream resolution.
     // Default is 300x150 which mismatches the camera and breaks face detection.
     const track = mediaStream.getVideoTracks()[0]
-    const { width, height } = track.getSettings()
+    if (!track) {
+      throw new Error('No video track found in camera stream.')
+    }
+    const cameraTrack: MediaStreamTrack = track
+    const { width, height } = cameraTrack.getSettings()
     const canvas = document.getElementById('mxcanvas') as HTMLCanvasElement | null
     if (canvas && width && height) {
       canvas.width = width
@@ -78,10 +103,19 @@ export const useShenAICustomUI = () => {
     if (sdk.isInitialized?.()) {
       sdk.deinitialize()
     }
+    const cameraModeOff = sdk.CameraMode?.OFF
+    const positioningMode = sdk.OperatingMode?.POSITIONING
+    const hiddenOnboarding = sdk.OnboardingMode?.HIDDEN
+    const measurementScreen = sdk.Screen?.MEASUREMENT
+    if (!cameraModeOff || !positioningMode || !hiddenOnboarding || !measurementScreen) {
+      throw new Error('Shen.AI SDK enum values are unavailable.')
+    }
     faceOk.value = false
     faceHint.value = ''
     measuring.value = false
     progress.value = 0
+    vitalsResult.value = emptyVitalsResult()
+    applyVitalsResult(vitalsResult.value)
 
     const result: any = await new Promise((resolve) => {
       sdk.initialize(
@@ -92,17 +126,16 @@ export const useShenAICustomUI = () => {
           // setMediaStream(). Without cameraMode:OFF the SDK keeps its internal
           // camera as the source and silently ignores our stream, so
           // getFaceState() stays UNKNOWN forever (matches official webrtc example).
-          cameraMode: sdk.CameraMode.OFF,
+          cameraMode: cameraModeOff,
           cameraAspectRatio: width && height ? width / height : undefined,
-          initializationMode: sdk.InitializationMode?.MEASUREMENT,
-          operatingMode: sdk.OperatingMode.POSITIONING,
+          operatingMode: positioningMode,
           showUserInterface: true,
-          onboardingMode: sdk.OnboardingMode.HIDDEN,
+          onboardingMode: hiddenOnboarding,
           showDisclaimer: false,
           // Drive the flow straight to the measurement screen. Without this the
           // SDK sits on its onboarding/disclaimer screen and never starts
           // processing frames, so getFaceState() stays UNKNOWN.
-          uiFlowScreens: [sdk.Screen.MEASUREMENT],
+          uiFlowScreens: [measurementScreen],
           enableFullFrameProcessing: true
         },
         resolve
@@ -120,9 +153,9 @@ export const useShenAICustomUI = () => {
     //    Give the render loop a couple ticks, then push a CLONED track wrapped
     //    in a fresh MediaStream (the official webrtc example does exactly this;
     //    passing the raw stream/track can be dropped by the frame dispatcher).
-    sdk.setOperatingMode(sdk.OperatingMode.POSITIONING)
+    sdk.setOperatingMode(positioningMode)
     await waitFrames(2)
-    const sdkTrack = mediaStream.getVideoTracks()[0].clone()
+    const sdkTrack = cameraTrack.clone()
     const sdkStream = new MediaStream([sdkTrack])
     sdk.setMediaStream(sdkStream, true)
     await waitFrames(3)
@@ -189,8 +222,7 @@ export const useShenAICustomUI = () => {
 
         // Live values while the scan runs so the UI isn't stuck at 0.
         if (measuring.value) {
-          const rt = sdk.getRealtimeMetrics?.(10)
-          if (rt) applyResults(rt)
+          applyRealtimeResults()
         }
 
         if (ms.value === 7) {
@@ -219,12 +251,51 @@ export const useShenAICustomUI = () => {
   }
 
   function applyResults(r: any) {
-    if (r.heart_rate_bpm != null) vitals.heartRate.value = Math.round(r.heart_rate_bpm)
-    if (r.systolic_blood_pressure_mmhg != null) vitals.systolic.value = Math.round(r.systolic_blood_pressure_mmhg)
-    if (r.diastolic_blood_pressure_mmhg != null) vitals.diastolic.value = Math.round(r.diastolic_blood_pressure_mmhg)
-    if (r.stress_index != null) vitals.stress.value = Math.round(r.stress_index * 100) / 100
-    if (r.breathing_rate_bpm != null) vitals.respiration.value = Math.round(r.breathing_rate_bpm)
-    if (r.hrv_sdnn_ms != null) vitals.hrv.value = Math.round(r.hrv_sdnn_ms)
+    applyVitalsResult({
+      heartRate: roundOrKeep(r.heart_rate_bpm, vitalsResult.value.heartRate),
+      systolic: roundOrKeep(r.systolic_blood_pressure_mmhg, vitalsResult.value.systolic),
+      diastolic: roundOrKeep(r.diastolic_blood_pressure_mmhg, vitalsResult.value.diastolic),
+      bloodPressure: '',
+      hrv: roundOrKeep(r.hrv_sdnn_ms, vitalsResult.value.hrv),
+      stress: r.stress_index != null ? Math.round(r.stress_index * 100) / 100 : vitalsResult.value.stress,
+      breathingRate: roundOrKeep(r.breathing_rate_bpm, vitalsResult.value.breathingRate)
+    })
+  }
+
+  function applyRealtimeResults() {
+    const rt = sdk.getRealtimeMetrics?.(10)
+    const heartRate = sdk.getRealtimeHeartRate?.() ?? sdk.getHeartRate4s?.() ?? sdk.getHeartRate10s?.()
+    const hrv = sdk.getRealtimeHrvSdnn?.()
+    const stress = sdk.getRealtimeCardiacStress?.()
+
+    applyVitalsResult({
+      heartRate: roundOrKeep(heartRate ?? rt?.heart_rate_bpm, vitalsResult.value.heartRate),
+      systolic: roundOrKeep(rt?.systolic_blood_pressure_mmhg, vitalsResult.value.systolic),
+      diastolic: roundOrKeep(rt?.diastolic_blood_pressure_mmhg, vitalsResult.value.diastolic),
+      bloodPressure: '',
+      hrv: roundOrKeep(hrv ?? rt?.hrv_sdnn_ms, vitalsResult.value.hrv),
+      stress: stress != null ? Math.round(stress * 100) / 100 : vitalsResult.value.stress,
+      breathingRate: roundOrKeep(rt?.breathing_rate_bpm, vitalsResult.value.breathingRate)
+    })
+  }
+
+  function applyVitalsResult(next: VitalsResult) {
+    const result = {
+      ...next,
+      bloodPressure: `${next.systolic}/${next.diastolic}`
+    }
+
+    vitalsResult.value = result
+    vitals.heartRate.value = result.heartRate
+    vitals.systolic.value = result.systolic
+    vitals.diastolic.value = result.diastolic
+    vitals.stress.value = result.stress
+    vitals.respiration.value = result.breathingRate
+    vitals.hrv.value = result.hrv
+  }
+
+  function roundOrKeep(value: number | null | undefined, fallback: number) {
+    return value != null ? Math.round(value) : fallback
   }
 
   function stop() {
@@ -238,6 +309,8 @@ export const useShenAICustomUI = () => {
     ready.value = false
     measuring.value = false
     progress.value = 0
+    vitalsResult.value = emptyVitalsResult()
+    applyVitalsResult(vitalsResult.value)
     phase.value = 'camera'
   }
 
@@ -251,6 +324,7 @@ export const useShenAICustomUI = () => {
     ready,
     measuring,
     progress,
+    vitalsResult,
     stream: cameraStream
   }
 }
