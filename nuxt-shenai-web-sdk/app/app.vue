@@ -18,6 +18,10 @@ const videoEl = ref<HTMLVideoElement | null>(null)
 const starting = ref(false)
 const error = ref('')
 
+function continueFromConsent() {
+  phase.value = 'camera'
+}
+
 // Bind our camera stream to the <video> preview.
 watch([stream, videoEl], ([s, el]) => {
   if (el) el.srcObject = s ?? null
@@ -41,14 +45,17 @@ async function begin() {
 function close() {
   stop()
   error.value = ''
+  phase.value = 'consent'
 }
 </script>
 
 <template>
   <div class="app">
+    <ConsentScreen v-if="phase === 'consent'" @continue="continueFromConsent" />
+
     <!-- Keep the phone frame (and hidden #mxcanvas) mounted so the SDK's WebGL
          context survives the results screen and re-scans work. -->
-    <div v-show="phase !== 'results'" class="phone">
+    <div v-show="phase !== 'consent' && phase !== 'results'" class="phone">
       <header class="topbar">
         <div>
           <div class="title">Vitals Measurement</div>
@@ -199,16 +206,7 @@ body {
   justify-content: center;
   padding: 24px;
 }
-.phone {
-  width: 100%;
-  max-width: 400px;
-  background: var(--surface);
-  border-radius: var(--radius);
-  overflow: hidden;
-  box-shadow: var(--shadow);
-  display: flex;
-  flex-direction: column;
-}
+
 .topbar {
   display: flex;
   align-items: center;
