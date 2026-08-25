@@ -54,6 +54,19 @@ const emptyVitalsResult = (): VitalsResult => ({
   breathingRate: 0
 })
 
+type HealthRiskInput = {
+  age?: number
+  cholesterol?: number
+  cholesterolHdl?: number
+  sbp?: number
+  dbp?: number
+  isSmoker?: boolean
+  hasDiabetes?: boolean
+  treatedBp?: boolean
+  bodyHeight?: number
+  bodyWeight?: number
+}
+
 export const useShenAICustomUI = () => {
   const { $createShenaiSDK } = useNuxtApp()
   const { phase } = useScanState()
@@ -190,6 +203,38 @@ export const useShenAICustomUI = () => {
     measuring.value = false
   }
 
+  function computeHealthRisks(input: HealthRiskInput) {
+    if (!sdk?.isInitialized?.()) {
+      throw new Error('Shen.AI SDK must be initialized before computing health risks.')
+    }
+
+    const factors: Record<string, unknown> = {
+      age: input.age,
+      cholesterol: input.cholesterol,
+      cholesterolHdl: input.cholesterolHdl,
+      sbp: input.sbp,
+      dbp: input.dbp,
+      isSmoker: input.isSmoker,
+      hasDiabetes: input.hasDiabetes,
+      bodyHeight: input.bodyHeight,
+      bodyWeight: input.bodyWeight,
+      gender: sdk.Gender?.MALE,
+      country: 'US',
+      race: sdk.Race?.OTHER,
+      hypertensionTreatment: input.treatedBp === true
+        ? sdk.HypertensionTreatment?.YES
+        : input.treatedBp === false
+          ? sdk.HypertensionTreatment?.NO
+          : undefined
+    }
+
+    Object.keys(factors).forEach((key) => {
+      if (factors[key] == null || factors[key] === '') delete factors[key]
+    })
+
+    return sdk.computeHealthRisks(factors)
+  }
+
   // Poll face state + measurement progress; move to results on FINISHED.
   function startPolling() {
     console.log("inside startPolling");
@@ -318,6 +363,7 @@ export const useShenAICustomUI = () => {
     initialize,
     startMeasurement,
     stopMeasurement,
+    computeHealthRisks,
     stop,
     faceHint,
     faceOk,

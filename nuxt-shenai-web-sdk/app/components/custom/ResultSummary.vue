@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const { phase } = useScanState()
-const { stop, initialize } = useShenAICustomUI()
+const { stop, initialize, computeHealthRisks } = useShenAICustomUI()
 const { heartRate, systolic, diastolic, stress, hrv } = useVitals()
 
 type Status = { label: string; tone: 'good' | 'warn' | 'bad' }
@@ -52,7 +52,13 @@ const riskCards = [
   'Hypertension Risk'
 ]
 
+const visibleRiskCards = computed(() =>
+  riskCards.filter((card) => cardioRisk.value == null || card !== 'Cardiovascular Disease Risk')
+)
+
 const showCardioRiskForm = ref(false)
+const cardioRisk = ref<number | null>(null)
+const cardioRiskError = ref('')
 const cardioRiskForm = reactive({
   smoker: '',
   diabetes: '',
@@ -84,7 +90,38 @@ function openRiskCard(card: string) {
 }
 
 function submitCardioRiskForm() {
-  showCardioRiskForm.value = false
+  cardioRiskError.value = ''
+
+  try {
+    const risks = computeHealthRisks({
+      age: 46,
+      sbp: systolic.value,
+      dbp: diastolic.value,
+      isSmoker: cardioRiskForm.smoker === 'yes',
+      hasDiabetes: cardioRiskForm.diabetes === 'yes',
+      treatedBp: cardioRiskForm.treatedBp === 'yes',
+      cholesterol: toNumber(cardioRiskForm.totalCholesterol),
+      cholesterolHdl: toNumber(cardioRiskForm.hdl),
+      bodyHeight: toNumber(cardioRiskForm.height),
+      bodyWeight: toNumber(cardioRiskForm.weight)
+    })
+
+    const overallRisk = risks?.cvDiseases?.overallRisk
+    cardioRisk.value = typeof overallRisk === 'number' ? normalizeRiskPercent(overallRisk) : null
+    showCardioRiskForm.value = false
+  } catch (error) {
+    cardioRiskError.value = error instanceof Error ? error.message : 'Could not calculate cardiovascular risk.'
+  }
+}
+
+function normalizeRiskPercent(value: number) {
+  const percent = value <= 1 ? value * 100 : value
+  return Math.round(percent * 10) / 10
+}
+
+function toNumber(value: string) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && value.trim() !== '' ? parsed : undefined
 }
 
 async function scanAgain() {
@@ -168,7 +205,23 @@ async function scanAgain() {
       <p class="insight">{{ insight }}</p>
 
       <div class="risk-list" aria-label="Risk assessment information">
-        <button v-for="card in riskCards" :key="card" class="risk-card" type="button" @click="openRiskCard(card)">
+        <button
+          v-if="cardioRisk != null"
+          class="risk-card risk-card-result"
+          type="button"
+          @click="openRiskCard('Cardiovascular Disease Risk')"
+        >
+          <span>
+            <strong>Cardiovascular Disease Risk</strong>
+            <b>{{ cardioRisk }}<small>%</small></b>
+            <i class="risk-meter" :style="{ '--risk': cardioRisk }">
+              <em />
+            </i>
+          </span>
+          <i class="risk-chevron" />
+        </button>
+
+        <button v-for="card in visibleRiskCards" :key="card" class="risk-card" type="button" @click="openRiskCard(card)">
           <svg class="risk-lock" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <rect x="5" y="11" width="14" height="10" rx="2" />
             <path d="M8 11V8a4 4 0 0 1 8 0v3" />
@@ -245,6 +298,8 @@ async function scanAgain() {
         </div>
 
         <p class="risk-note">Cholesterol and HDL give the most accurate score; height and weight (BMI) can be used instead if you do not have lab values on hand.</p>
+
+        <p v-if="cardioRiskError" class="risk-error">{{ cardioRiskError }}</p>
 
         <button class="submit-risk" type="submit">Submit</button>
       </form>
@@ -438,6 +493,59 @@ async function scanAgain() {
 }
 .risk-card small { color: #d45b0a; font-weight: 700; font-size: 0.82rem; }
 
+.risk-card-result {
+  align-items: flex-start;
+  color: #001a33;
+}
+
+.risk-card-result span {
+  width: 100%;
+}
+
+.risk-card-result b {
+  color: #001a33;
+  font-size: 1.75rem;
+  line-height: 1;
+}
+
+.risk-card-result b small {
+  color: inherit;
+  font-size: 1.1rem;
+}
+
+.risk-meter {
+  --risk: 0;
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 8px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #47b267 0 33%, #f4b65f 33% 66%, #ef7d70 66% 100%);
+}
+
+.risk-meter em {
+  position: absolute;
+  top: 50%;
+  left: clamp(4px, calc(var(--risk) * 1%), calc(100% - 10px));
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 5px rgba(15, 23, 42, 0.24);
+  transform: translate(-50%, -50%);
+}
+
+.risk-chevron {
+  width: 8px;
+  height: 8px;
+  border-top: 2px solid #8e99a5;
+  border-right: 2px solid #8e99a5;
+  transform: rotate(45deg);
+  flex: none;
+  margin-top: 5px;
+}
+
 .risk-modal {
   position: absolute;
   inset: 0;
@@ -563,6 +671,12 @@ async function scanAgain() {
   color: #858585 !important;
   font-size: 0.72rem !important;
   line-height: 1.35 !important;
+}
+
+.risk-error {
+  margin: 0 0 10px !important;
+  color: #dc2626 !important;
+  font-size: 0.75rem !important;
 }
 
 .submit-risk {
