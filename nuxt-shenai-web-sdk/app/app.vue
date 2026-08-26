@@ -148,10 +148,10 @@ function close() {
         <button
           v-else-if="phase === 'scanning' && !measuring"
           class="btn footer-btn"
-          :disabled="!ready"
+          :disabled="starting"
           @click="startMeasurement"
         >
-          {{ ready ? 'Start Measurement' : faceHint }}
+          {{ ready ? 'Start Measurement' : 'Checking face position' }}
         </button>
 
         <button v-else-if="measuring" class="btn btn-ghost footer-btn" @click="stopMeasurement">
