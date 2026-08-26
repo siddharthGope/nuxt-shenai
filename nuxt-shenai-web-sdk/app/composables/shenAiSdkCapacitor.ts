@@ -1,0 +1,225 @@
+import {
+  ShenaiSdkCapacitor,
+  CameraMode,
+  Gender,
+  HypertensionTreatment,
+  InitializationMode,
+  InitializationResult,
+  MeasurementState,
+  OnboardingMode,
+  OperatingMode,
+  Race,
+  Screen,
+  type HealthRisks,
+  type MeasurementResults,
+  type MeasurementResultsHistory,
+  type RisksFactors
+} from '@shenai/capacitor-sdk'
+
+type NativeVitalsResult = {
+  heartRate: number
+  systolic: number
+  diastolic: number
+  bloodPressure: string
+  hrv: number
+  stress: number
+  breathingRate: number
+}
+
+type NativeHealthRiskInput = {
+  age?: number
+  cholesterol?: number
+  cholesterolHdl?: number
+  sbp?: number
+  dbp?: number
+  isSmoker?: boolean
+  hasDiabetes?: boolean
+  treatedBp?: boolean
+  bodyHeight?: number
+  bodyWeight?: number
+}
+
+const emptyNativeVitalsResult = (): NativeVitalsResult => ({
+  heartRate: 0,
+  systolic: 0,
+  diastolic: 0,
+  bloodPressure: '0/0',
+  hrv: 0,
+  stress: 0,
+  breathingRate: 0
+})
+
+function roundOrZero(value: number | null | undefined) {
+  return value != null ? Math.round(value) : 0
+}
+
+function normalizeNativeResults(results: MeasurementResults | null): NativeVitalsResult {
+  if (!results) return emptyNativeVitalsResult()
+
+  const systolic = roundOrZero(results.systolicBloodPressureMmhg)
+  const diastolic = roundOrZero(results.diastolicBloodPressureMmhg)
+
+  return {
+    heartRate: roundOrZero(results.heartRateBpm),
+    systolic,
+    diastolic,
+    bloodPressure: `${systolic}/${diastolic}`,
+    hrv: roundOrZero(results.hrvSdnnMs),
+    stress: results.stressIndex != null ? Math.round(results.stressIndex * 100) / 100 : 0,
+    breathingRate: roundOrZero(results.breathingRateBpm)
+  }
+}
+
+function toRiskFactors(input: NativeHealthRiskInput): RisksFactors {
+  const factors: RisksFactors = {
+    age: input.age,
+    cholesterol: input.cholesterol,
+    cholesterolHdl: input.cholesterolHdl,
+    sbp: input.sbp,
+    dbp: input.dbp,
+    isSmoker: input.isSmoker,
+    hypertensionTreatment: input.treatedBp === true
+      ? HypertensionTreatment.YES
+      : input.treatedBp === false
+        ? HypertensionTreatment.NO
+        : undefined,
+    hasDiabetes: input.hasDiabetes,
+    bodyHeight: input.bodyHeight,
+    bodyWeight: input.bodyWeight,
+    gender: Gender.MALE,
+    country: 'US',
+    race: Race.OTHER
+  }
+
+  Object.keys(factors).forEach((key) => {
+    const typedKey = key as keyof RisksFactors
+    const value = factors[typedKey]
+    if (value == null || value === '') delete factors[typedKey]
+  })
+
+  return factors
+}
+
+export const useShenAiCapacitor = () => {
+  const initialized = useState<boolean>('shenai_cap_initialized', () => false)
+  const measuring = useState<boolean>('shenai_cap_measuring', () => false)
+  const progress = useState<number>('shenai_cap_progress', () => 0)
+  const vitalsResult = useState<NativeVitalsResult>('shenai_cap_vitalsResult', emptyNativeVitalsResult)
+
+  async function initialize(userId: string) {
+    const apiKey = import.meta.env.VITE_SHENAI_API_KEY
+    if (!apiKey) {
+      throw new Error('Missing VITE_SHENAI_API_KEY. Add it to a .env file at the project root.')
+    }
+
+    const current = await ShenaiSdkCapacitor.isInitialized()
+    if (current.value) {
+      await ShenaiSdkCapacitor.deinitialize()
+    }
+
+    const result = await ShenaiSdkCapacitor.initialize({
+      apiKey,
+      userId,
+      settings: {
+        cameraMode: CameraMode.FACING_USER,
+        initializationMode: InitializationMode.MEASUREMENT,
+        operatingMode: OperatingMode.POSITIONING,
+        onboardingMode: OnboardingMode.HIDDEN,
+        showDisclaimer: false,
+        showUserInterface: false,
+        showStartStopButton: false,
+        showFacePositioningOverlay: false,
+        showVisualWarnings: false,
+        hideShenaiLogo: true,
+        localMemoryEnabled: true,
+        uiFlowScreens: [Screen.MEASUREMENT]
+      }
+    })
+
+    if (result.value !== InitializationResult.OK) {
+      throw new Error(`Shen.AI Capacitor initialization failed: ${result.value}`)
+    }
+
+    initialized.value = true
+    measuring.value = false
+    progress.value = 0
+    vitalsResult.value = emptyNativeVitalsResult()
+
+    await ShenaiSdkCapacitor.setScreen({ screen: Screen.MEASUREMENT })
+    await ShenaiSdkCapacitor.setOverlaysWebview({ overlay: false }).catch(() => {})
+  }
+
+  async function startMeasurement() {
+    const ready = await ShenaiSdkCapacitor.isReadyToStartMeasurement()
+    if (!ready.value) return false
+
+    await ShenaiSdkCapacitor.setOperatingMode({ operatingMode: OperatingMode.MEASURE })
+    await ShenaiSdkCapacitor.startMeasurement()
+    measuring.value = true
+    return true
+  }
+
+  async function stopMeasurement() {
+    await ShenaiSdkCapacitor.stopMeasurement()
+    await ShenaiSdkCapacitor.setOperatingMode({ operatingMode: OperatingMode.POSITIONING })
+    measuring.value = false
+  }
+
+  async function refreshMeasurementState() {
+    const state = await ShenaiSdkCapacitor.getMeasurementState()
+    const progressResult = await ShenaiSdkCapacitor.getMeasurementProgressPercentage()
+
+    progress.value = Math.round(progressResult.value ?? 0)
+    measuring.value = state.value >= MeasurementState.RUNNING_SIGNAL_SHORT && state.value <= MeasurementState.FINALIZING
+
+    const liveResults = await ShenaiSdkCapacitor.getRealtimeMetrics({ periodSec: 10 }).catch(() => null)
+    if (liveResults) vitalsResult.value = normalizeNativeResults(liveResults)
+
+    if (state.value === MeasurementState.FINISHED) {
+      const finalResults = await ShenaiSdkCapacitor.getMeasurementResults()
+      vitalsResult.value = normalizeNativeResults(finalResults)
+      measuring.value = false
+    }
+
+    return state.value
+  }
+
+  async function getMeasurementResults(): Promise<NativeVitalsResult> {
+    const results = await ShenaiSdkCapacitor.getMeasurementResults()
+    vitalsResult.value = normalizeNativeResults(results)
+    return vitalsResult.value
+  }
+
+  async function getMeasurementHistory(): Promise<MeasurementResultsHistory | null> {
+    return await ShenaiSdkCapacitor.getMeasurementResultsHistory()
+  }
+
+  async function computeHealthRisks(input: NativeHealthRiskInput): Promise<HealthRisks> {
+    return await ShenaiSdkCapacitor.computeHealthRisks({ risksFactors: toRiskFactors(input) })
+  }
+
+  async function stop() {
+    if (initialized.value) {
+      await ShenaiSdkCapacitor.deinitialize().catch(() => {})
+    }
+    initialized.value = false
+    measuring.value = false
+    progress.value = 0
+    vitalsResult.value = emptyNativeVitalsResult()
+  }
+
+  return {
+    initialize,
+    startMeasurement,
+    stopMeasurement,
+    refreshMeasurementState,
+    getMeasurementResults,
+    getMeasurementHistory,
+    computeHealthRisks,
+    stop,
+    initialized,
+    measuring,
+    progress,
+    vitalsResult
+  }
+}

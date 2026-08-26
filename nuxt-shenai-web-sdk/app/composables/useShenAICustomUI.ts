@@ -23,7 +23,6 @@ function waitFrames(count = 2): Promise<void> {
   })
 }
 
-// FaceState -> user-facing hint (see getFaceState() docs).
 const FACE_HINTS: Record<number, string> = {
   0: 'Hold still',
   1: 'Move a little closer',

@@ -10,9 +10,16 @@
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
+    "@shenai/capacitor-sdk": "^3.1.10",
     "@shenai/sdk": "^3.1.9",
     "nuxt": "^4.5.2",
     "vue": "^3.5.41",
     "vue-router": "^5.2.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.0",
+    "typescript": "^7.0.2"
   }
 }
