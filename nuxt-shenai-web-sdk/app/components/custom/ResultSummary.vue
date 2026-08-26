@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const { phase } = useScanState()
-const { stop, initialize, computeHealthRisks } = useShenAICustomUI()
+const { stop, initialize, computeHealthRisks } = useShenAiCapacitor()
 const { heartRate, systolic, diastolic, stress, hrv } = useVitals()
 
 type Status = { label: string; tone: 'good' | 'warn' | 'bad' }
@@ -89,11 +89,11 @@ function openRiskCard(card: string) {
   }
 }
 
-function submitCardioRiskForm() {
+async function submitCardioRiskForm() {
   cardioRiskError.value = ''
 
   try {
-    const risks = computeHealthRisks({
+    const risks = await computeHealthRisks({
       age: 46,
       sbp: systolic.value,
       dbp: diastolic.value,
@@ -125,10 +125,9 @@ function toNumber(value: string) {
 }
 
 async function scanAgain() {
-  // Restart a fresh scan; the persistent #mxcanvas keeps the SDK binding valid.
   phase.value = 'scanning'
   try {
-    await initialize()
+    await initialize('user123')
   } catch {
     phase.value = 'camera'
   }

@@ -4,34 +4,66 @@ const {
   initialize,
   startMeasurement,
   stopMeasurement,
+  setViewRect,
   stop,
   progress,
   measuring,
-  faceHint,
-  faceOk,
   ready,
-  stream
-} = useShenAICustomUI()
+  faceHint
+} = useShenAiCapacitor()
 const { heartRate, systolic, diastolic, stress, hrv } = useVitals()
 
-const videoEl = ref<HTMLVideoElement | null>(null)
 const starting = ref(false)
 const error = ref('')
+const stageEl = ref<HTMLElement | null>(null)
+
+async function updateNativeCameraRect() {
+  if (!stageEl.value) return
+
+  const rect = stageEl.value.getBoundingClientRect()
+  await setViewRect({
+    x: rect.left,
+    y: rect.top,
+    width: rect.width,
+    height: rect.height
+  }).catch((cameraError) => {
+    console.warn('[ShenAI] Could not position native camera view:', cameraError)
+  })
+}
+
+let cameraResizeObserver: ResizeObserver | null = null
+onMounted(() => {
+  cameraResizeObserver = new ResizeObserver(() => void updateNativeCameraRect())
+  if (stageEl.value) cameraResizeObserver.observe(stageEl.value)
+  window.addEventListener('resize', updateNativeCameraRect)
+  setCameraBackground(phase.value === 'scanning' || phase.value === 'measuring')
+})
+onBeforeUnmount(() => {
+  cameraResizeObserver?.disconnect()
+  window.removeEventListener('resize', updateNativeCameraRect)
+})
+watch(phase, (nextPhase) => {
+  setCameraBackground(nextPhase === 'scanning' || nextPhase === 'measuring')
+})
 
 function continueFromConsent() {
   phase.value = 'camera'
 }
 
-// Bind our camera stream to the <video> preview.
-watch([stream, videoEl], ([s, el]) => {
-  if (el) el.srcObject = s ?? null
-}, { immediate: true })
+function setCameraBackground(enabled: boolean) {
+  document.documentElement.classList.toggle('native-camera-active', enabled)
+  document.body.classList.toggle('native-camera-active', enabled)
+}
 
 async function begin() {
   error.value = ''
   starting.value = true
   try {
-    await initialize()
+    await initialize('user123')
+    await nextTick()
+    await updateNativeCameraRect()
+    requestAnimationFrame(() => void updateNativeCameraRect())
+    setCameraBackground(true)
     phase.value = 'scanning'
     console.info("[ShenAI] SDK initialized successfully; phase set to 'scanning'")
   } catch (e) {
@@ -44,6 +76,7 @@ async function begin() {
 
 function close() {
   stop()
+  setCameraBackground(false)
   error.value = ''
   phase.value = 'consent'
 }
@@ -55,8 +88,7 @@ function close() {
     <!-- <ResultSummary /> -->
     <ConsentScreen v-if="phase === 'consent'" @continue="continueFromConsent" />
 
-    <!-- Keep the phone frame (and hidden #mxcanvas) mounted so the SDK's WebGL
-         context survives the results screen and re-scans work. -->
+    <!-- Keep the native camera view mounted while the custom controls overlay it. -->
     <div v-show="phase !== 'consent' && phase !== 'results'" class="phone">
       <header class="topbar">
         <div>
@@ -70,21 +102,13 @@ function close() {
         </button>
       </header>
 
-      <div class="stage">
-        <!-- Our own camera preview -->
-        <video ref="videoEl" class="cam" autoplay playsinline muted />
-
-        <!-- Hidden canvas: the SDK needs a WebGL context but renders nothing.
-             Its width/height are set at runtime to match the real camera stream. -->
-        <canvas id="mxcanvas" class="proc-canvas" />
-
-        <!-- Custom face-position guide -->
-        <div v-if="phase === 'scanning'" class="guide" :class="{ ok: faceOk }">
+      <div ref="stageEl" class="stage">
+        <div v-if="phase === 'scanning'" class="guide">
           <span class="br tl" /><span class="br tr" />
           <span class="br bl" /><span class="br br-c" />
         </div>
 
-        <div v-if="phase === 'scanning' && !measuring && faceHint" class="hint">
+        <div v-if="phase === 'scanning' && !measuring" class="hint">
           {{ faceHint }}
         </div>
 
@@ -163,6 +187,10 @@ body {
   color: var(--text);
   background: radial-gradient(1100px 560px at 50% -12%, #f3f4f6 0%, var(--bg) 55%);
 }
+html.native-camera-active,
+body.native-camera-active {
+  background: transparent;
+}
 
 /* Shared UI primitives (also used by the custom flow components). */
 .btn {
@@ -215,6 +243,7 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 16px 18px;
+  background: var(--surface);
 }
 .title { font-weight: 700; font-size: 1.15rem; }
 .subtitle { font-size: 0.75rem; color: var(--muted); }
@@ -234,7 +263,7 @@ body {
   position: relative;
   width: 100%;
   aspect-ratio: 3 / 4;
-  background: #000;
+  background: transparent;
   overflow: hidden;
 }
 .cam {
@@ -313,7 +342,7 @@ body {
 
 .error { color: #dc2626; font-size: 0.85rem; text-align: center; padding: 8px 20px 0; }
 
-.footer { padding: 16px 18px 22px; }
+.footer { padding: 16px 18px 22px; background: var(--surface); }
 .footer-btn { width: 100%; }
 .view-results { width: 100%; margin-top: 14px; }
 .instruction {

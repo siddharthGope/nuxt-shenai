@@ -2,7 +2,7 @@
   width: 100%;
   min-height: 500px;
   max-width: 400px;
-  background: var(--surface);
+  background: transparent;
   border-radius: var(--radius);
   overflow: hidden;
   box-shadow: var(--shadow);
