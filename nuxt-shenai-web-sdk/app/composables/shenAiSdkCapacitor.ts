@@ -206,6 +206,15 @@ export const useShenAiCapacitor = () => {
     await ShenaiSdkCapacitor.setViewRect(rect)
   }
 
+  async function getMeasurementResultsWithRetry(attempts = 5, delayMs = 250): Promise<MeasurementResults | null> {
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      const results = await ShenaiSdkCapacitor.getMeasurementResults().catch(() => null)
+      if (results) return results
+      await new Promise((resolve) => setTimeout(resolve, delayMs))
+    }
+    return null
+  }
+
   async function refreshMeasurementState() {
     if (!initialized.value) return MeasurementState.NOT_STARTED
 
@@ -252,8 +261,13 @@ export const useShenAiCapacitor = () => {
     }
 
     if (state.value === MeasurementState.FINISHED) {
-      const finalResults = await ShenaiSdkCapacitor.getMeasurementResults()
-      applyVitalsResult(normalizeNativeResults(finalResults))
+      // The native side can briefly return null right after FINISHED is
+      // reported, before the final results are actually computed - retry
+      // instead of overwriting the last known-good (real-time) values with zeros.
+      const finalResults = await getMeasurementResultsWithRetry()
+      if (finalResults) {
+        applyVitalsResult(normalizeNativeResults(finalResults))
+      }
       measuring.value = false
       stopPolling()
       phase.value = 'results'
