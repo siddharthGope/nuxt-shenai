@@ -102,6 +102,7 @@ function toRiskFactors(input: NativeHealthRiskInput): RisksFactors {
 
 export const useShenAiCapacitor = () => {
   const { phase } = useScanState()
+  const vitals = useVitals()
   const initialized = useState<boolean>('shenai_cap_initialized', () => false)
   const ready = useState<boolean>('shenai_cap_ready', () => false)
   const faceHint = useState<string>('shenai_cap_faceHint', () => 'Position your face in the frame')
@@ -109,6 +110,7 @@ export const useShenAiCapacitor = () => {
   const progress = useState<number>('shenai_cap_progress', () => 0)
   const vitalsResult = useState<NativeVitalsResult>('shenai_cap_vitalsResult', emptyNativeVitalsResult)
   let pollTimer: ReturnType<typeof setInterval> | null = null
+  let pollInFlight = false
 
   function stopPolling() {
     if (pollTimer) {
@@ -120,7 +122,7 @@ export const useShenAiCapacitor = () => {
   function startPolling() {
     stopPolling()
     pollTimer = setInterval(() => {
-      void refreshMeasurementState()
+      if (!pollInFlight) void refreshMeasurementState()
     }, 300)
   }
 
@@ -163,7 +165,7 @@ export const useShenAiCapacitor = () => {
     faceHint.value = 'Position your face in the frame'
     measuring.value = false
     progress.value = 0
-    vitalsResult.value = emptyNativeVitalsResult()
+    applyVitalsResult(emptyNativeVitalsResult())
 
     await ShenaiSdkCapacitor.setScreen({ screen: Screen.MEASUREMENT })
     await Promise.all([
@@ -207,6 +209,17 @@ export const useShenAiCapacitor = () => {
   async function refreshMeasurementState() {
     if (!initialized.value) return MeasurementState.NOT_STARTED
 
+    pollInFlight = true
+    try {
+      return await refreshMeasurementStateInternal()
+    } finally {
+      pollInFlight = false
+    }
+  }
+
+  async function refreshMeasurementStateInternal() {
+    if (!initialized.value) return MeasurementState.NOT_STARTED
+
     const readyResult = await ShenaiSdkCapacitor.isReadyToStartMeasurement().catch(() => ({ value: false }))
     ready.value = readyResult.value
     const state = await ShenaiSdkCapacitor.getMeasurementState()
@@ -227,12 +240,20 @@ export const useShenAiCapacitor = () => {
       faceHint.value = 'Finalizing your results'
     }
 
-    const liveResults = await ShenaiSdkCapacitor.getRealtimeMetrics({ periodSec: 10 }).catch(() => null)
-    if (liveResults) vitalsResult.value = normalizeNativeResults(liveResults)
+    const [liveResults, heartRate10s, heartRate4s] = await Promise.all([
+      ShenaiSdkCapacitor.getRealtimeMetrics({ periodSec: 10 }).catch(() => null),
+      ShenaiSdkCapacitor.getHeartRate10s().catch(() => ({ value: null })),
+      ShenaiSdkCapacitor.getHeartRate4s().catch(() => ({ value: null }))
+    ])
+    if (liveResults || heartRate10s.value != null || heartRate4s.value != null) {
+      const next = normalizeNativeResults(liveResults)
+      next.heartRate = roundOrZero(heartRate4s.value ?? heartRate10s.value ?? liveResults?.heartRateBpm)
+      applyVitalsResult(next)
+    }
 
     if (state.value === MeasurementState.FINISHED) {
       const finalResults = await ShenaiSdkCapacitor.getMeasurementResults()
-      vitalsResult.value = normalizeNativeResults(finalResults)
+      applyVitalsResult(normalizeNativeResults(finalResults))
       measuring.value = false
       stopPolling()
       phase.value = 'results'
@@ -243,8 +264,18 @@ export const useShenAiCapacitor = () => {
 
   async function getMeasurementResults(): Promise<NativeVitalsResult> {
     const results = await ShenaiSdkCapacitor.getMeasurementResults()
-    vitalsResult.value = normalizeNativeResults(results)
+    applyVitalsResult(normalizeNativeResults(results))
     return vitalsResult.value
+  }
+
+  function applyVitalsResult(result: NativeVitalsResult) {
+    vitalsResult.value = result
+    vitals.heartRate.value = result.heartRate
+    vitals.systolic.value = result.systolic
+    vitals.diastolic.value = result.diastolic
+    vitals.stress.value = result.stress
+    vitals.respiration.value = result.breathingRate
+    vitals.hrv.value = result.hrv
   }
 
   async function getMeasurementHistory(): Promise<MeasurementResultsHistory | null> {
@@ -265,7 +296,7 @@ export const useShenAiCapacitor = () => {
     faceHint.value = 'Position your face in the frame'
     measuring.value = false
     progress.value = 0
-    vitalsResult.value = emptyNativeVitalsResult()
+    applyVitalsResult(emptyNativeVitalsResult())
   }
 
   return {
