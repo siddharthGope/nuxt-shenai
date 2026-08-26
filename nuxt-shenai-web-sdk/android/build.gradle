@@ -24,6 +24,13 @@ allprojects {
     }
 }
 
+subprojects { project ->
+    if (project.projectDir.absolutePath.contains("${File.separator}node_modules${File.separator}")) {
+        // Keep generated outputs out of node_modules to avoid file-lock/delete issues.
+        project.buildDir = file("$rootDir/build/external/${project.name}")
+    }
+}
+
 task clean(type: Delete) {
     delete rootProject.buildDir
 }
