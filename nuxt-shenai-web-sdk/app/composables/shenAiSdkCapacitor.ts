@@ -175,6 +175,8 @@ export const useShenAiCapacitor = () => {
     ]).catch((settingsError) => {
       console.warn('[ShenAI] Could not hide native controls:', settingsError)
     })
+    await ShenaiSdkCapacitor.resetMeasurementSession().catch(() => {})
+    await ShenaiSdkCapacitor.setOperatingMode({ operatingMode: OperatingMode.POSITIONING })
     // Keep the native camera surface behind the WebView so our custom controls
     // and face-positioning guide remain visible above it.
     await ShenaiSdkCapacitor.setOverlaysWebview({ overlay: false }).catch(() => {})
@@ -182,6 +184,7 @@ export const useShenAiCapacitor = () => {
   }
 
   async function startMeasurement() {
+    if (!ready.value) return false
     const readyResult = await ShenaiSdkCapacitor.isReadyToStartMeasurement()
     if (!readyResult.value) return false
 

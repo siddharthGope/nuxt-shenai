@@ -103,7 +103,7 @@ function close() {
       </header>
 
       <div ref="stageEl" class="stage">
-        <div v-if="phase === 'scanning'" class="guide">
+        <div v-if="phase === 'scanning'" class="guide" :class="{ ok: ready }">
           <span class="br tl" /><span class="br tr" />
           <span class="br bl" /><span class="br br-c" />
         </div>
@@ -148,7 +148,7 @@ function close() {
         <button
           v-else-if="phase === 'scanning' && !measuring"
           class="btn footer-btn"
-          :disabled="starting"
+          :disabled="starting || !ready"
           @click="startMeasurement"
         >
           {{ ready ? 'Start Measurement' : 'Checking face position' }}
