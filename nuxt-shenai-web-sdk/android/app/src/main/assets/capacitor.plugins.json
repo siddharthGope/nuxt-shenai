@@ -1,0 +1,6 @@
+[
+	{
+		"pkg": "@shenai/capacitor-sdk",
+		"classpath": "ai.mxlabs.shenai_sdk.plugins.capacitor.ShenaiSdkCapacitorPlugin"
+	}
+]

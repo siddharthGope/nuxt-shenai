@@ -1,0 +1,8 @@
+{
+	"appId": "ai.lumi.shenai",
+	"appName": "Lumi AI",
+	"webDir": ".output/public",
+	"server": {
+		"androidScheme": "https"
+	}
+}
