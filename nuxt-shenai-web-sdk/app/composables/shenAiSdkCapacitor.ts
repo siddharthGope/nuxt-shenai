@@ -6,6 +6,7 @@ import {
   InitializationMode,
   InitializationResult,
   MeasurementState,
+  MeasurementPreset,
   OnboardingMode,
   OperatingMode,
   Race,
@@ -147,6 +148,7 @@ export const useShenAiCapacitor = () => {
       settings: {
         cameraMode: CameraMode.FACING_USER,
         initializationMode: InitializationMode.MEASUREMENT,
+        measurementPreset: MeasurementPreset.ONE_MINUTE_ALL_METRICS,
         operatingMode: OperatingMode.POSITIONING,
         onboardingMode: OnboardingMode.HIDDEN,
         showDisclaimer: false,
@@ -254,14 +256,27 @@ export const useShenAiCapacitor = () => {
     }
 
     const [liveResults, heartRate10s, heartRate4s] = await Promise.all([
-      ShenaiSdkCapacitor.getRealtimeMetrics({ periodSec: 10 }).catch(() => null),
+      ShenaiSdkCapacitor.getRealtimeMetrics({ periodSec: 30 }).catch(() => null),
       ShenaiSdkCapacitor.getHeartRate10s().catch(() => ({ value: null })),
       ShenaiSdkCapacitor.getHeartRate4s().catch(() => ({ value: null }))
     ])
     if (liveResults || heartRate10s.value != null || heartRate4s.value != null) {
       const next = normalizeNativeResults(liveResults)
-      next.heartRate = roundOrZero(heartRate4s.value ?? heartRate10s.value ?? liveResults?.heartRateBpm)
-      applyVitalsResult(next)
+      const latestHeartRate = heartRate4s.value ?? heartRate10s.value ?? liveResults?.heartRateBpm
+      if (latestHeartRate != null) next.heartRate = roundOrZero(latestHeartRate)
+      applyVitalsResult({
+        ...vitalsResult.value,
+        ...next,
+        heartRate: latestHeartRate != null ? next.heartRate : vitalsResult.value.heartRate,
+        bloodPressure: liveResults?.systolicBloodPressureMmhg != null && liveResults?.diastolicBloodPressureMmhg != null
+          ? next.bloodPressure
+          : vitalsResult.value.bloodPressure,
+        systolic: liveResults?.systolicBloodPressureMmhg != null ? next.systolic : vitalsResult.value.systolic,
+        diastolic: liveResults?.diastolicBloodPressureMmhg != null ? next.diastolic : vitalsResult.value.diastolic,
+        hrv: liveResults?.hrvSdnnMs != null ? next.hrv : vitalsResult.value.hrv,
+        stress: liveResults?.stressIndex != null ? next.stress : vitalsResult.value.stress,
+        breathingRate: liveResults?.breathingRateBpm != null ? next.breathingRate : vitalsResult.value.breathingRate
+      })
     }
 
     if (state.value === MeasurementState.FINISHED) {
