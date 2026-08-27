@@ -285,7 +285,7 @@ export const useShenAiCapacitor = () => {
       // instead of overwriting the last known-good (real-time) values with zeros.
       const finalResults = await getMeasurementResultsWithRetry()
       if (finalResults) {
-        applyVitalsResult(normalizeNativeResults(finalResults))
+        applyVitalsResult(mergeNativeResults(vitalsResult.value, finalResults))
       }
       measuring.value = false
       stopPolling()
@@ -298,8 +298,25 @@ export const useShenAiCapacitor = () => {
 
   async function getMeasurementResults(): Promise<NativeVitalsResult> {
     const results = await ShenaiSdkCapacitor.getMeasurementResults()
-    applyVitalsResult(normalizeNativeResults(results))
+    applyVitalsResult(mergeNativeResults(vitalsResult.value, results))
     return vitalsResult.value
+  }
+
+  function mergeNativeResults(previous: NativeVitalsResult, results: MeasurementResults | null): NativeVitalsResult {
+    if (!results) return previous
+
+    const next = normalizeNativeResults(results)
+    return {
+      heartRate: results.heartRateBpm != null ? next.heartRate : previous.heartRate,
+      systolic: results.systolicBloodPressureMmhg != null ? next.systolic : previous.systolic,
+      diastolic: results.diastolicBloodPressureMmhg != null ? next.diastolic : previous.diastolic,
+      bloodPressure: results.systolicBloodPressureMmhg != null && results.diastolicBloodPressureMmhg != null
+        ? next.bloodPressure
+        : previous.bloodPressure,
+      hrv: results.hrvSdnnMs != null ? next.hrv : previous.hrv,
+      stress: results.stressIndex != null ? next.stress : previous.stress,
+      breathingRate: results.breathingRateBpm != null ? next.breathingRate : previous.breathingRate
+    }
   }
 
   async function persistCurrentScan() {
