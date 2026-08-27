@@ -28,6 +28,7 @@ type NativeVitalsResult = {
 
 type NativeHealthRiskInput = {
   age?: number
+  gender?: 'male' | 'female' | 'other' | string
   cholesterol?: number
   cholesterolHdl?: number
   sbp?: number
@@ -86,7 +87,7 @@ function toRiskFactors(input: NativeHealthRiskInput): RisksFactors {
     hasDiabetes: input.hasDiabetes,
     bodyHeight: input.bodyHeight,
     bodyWeight: input.bodyWeight,
-    gender: Gender.MALE,
+    gender: input.gender === 'female' ? Gender.FEMALE : input.gender === 'other' ? Gender.OTHER : Gender.MALE,
     country: 'US',
     race: Race.OTHER
   }
@@ -103,12 +104,15 @@ function toRiskFactors(input: NativeHealthRiskInput): RisksFactors {
 export const useShenAiCapacitor = () => {
   const { phase } = useScanState()
   const vitals = useVitals()
+  const { userId } = useCurrentUser()
+  const { saveScan } = useHealthStore()
   const initialized = useState<boolean>('shenai_cap_initialized', () => false)
   const ready = useState<boolean>('shenai_cap_ready', () => false)
   const faceHint = useState<string>('shenai_cap_faceHint', () => 'Position your face in the frame')
   const measuring = useState<boolean>('shenai_cap_measuring', () => false)
   const progress = useState<number>('shenai_cap_progress', () => 0)
   const vitalsResult = useState<NativeVitalsResult>('shenai_cap_vitalsResult', emptyNativeVitalsResult)
+  const lastScanDate = useState<string | null>('shenai_cap_lastScanDate', () => null)
   let pollTimer: ReturnType<typeof setInterval> | null = null
   let pollInFlight = false
 
@@ -126,7 +130,7 @@ export const useShenAiCapacitor = () => {
     }, 300)
   }
 
-  async function initialize(userId: string) {
+  async function initialize(member: string = userId.value) {
     const apiKey = import.meta.env.VITE_SHENAI_API_KEY
     if (!apiKey) {
       throw new Error('Missing VITE_SHENAI_API_KEY. Add it to a .env file at the project root.')
@@ -139,7 +143,7 @@ export const useShenAiCapacitor = () => {
 
     const result = await ShenaiSdkCapacitor.initialize({
       apiKey,
-      userId,
+      userId: member,
       settings: {
         cameraMode: CameraMode.FACING_USER,
         initializationMode: InitializationMode.MEASUREMENT,
@@ -270,6 +274,7 @@ export const useShenAiCapacitor = () => {
       }
       measuring.value = false
       stopPolling()
+      await persistCurrentScan()
       phase.value = 'results'
     }
 
@@ -280,6 +285,35 @@ export const useShenAiCapacitor = () => {
     const results = await ShenaiSdkCapacitor.getMeasurementResults()
     applyVitalsResult(normalizeNativeResults(results))
     return vitalsResult.value
+  }
+
+  async function persistCurrentScan() {
+    const result = vitalsResult.value
+    if (!result.heartRate) return
+
+    const scanDate = new Date().toISOString()
+    await saveScan({ ...result, scanDate, wellness: wellnessScore(result) })
+      .then(() => {
+        lastScanDate.value = scanDate
+      })
+      .catch((storageError) => {
+        console.warn('[ShenAI] Could not persist scan locally:', storageError)
+      })
+  }
+
+  // Populates the live vitals from a previously stored scan so a returning
+  // member sees their last results without running the camera.
+  function applyStoredScan(scan: StoredScan) {
+    applyVitalsResult({
+      heartRate: scan.heartRate,
+      systolic: scan.systolic,
+      diastolic: scan.diastolic,
+      bloodPressure: scan.bloodPressure,
+      hrv: scan.hrv,
+      stress: scan.stress,
+      breathingRate: scan.breathingRate
+    })
+    lastScanDate.value = scan.scanDate
   }
 
   function applyVitalsResult(result: NativeVitalsResult) {
@@ -322,12 +356,14 @@ export const useShenAiCapacitor = () => {
     getMeasurementResults,
     getMeasurementHistory,
     computeHealthRisks,
+    applyStoredScan,
     stop,
     ready,
     faceHint,
     initialized,
     measuring,
     progress,
+    lastScanDate,
     vitalsResult
   }
 }

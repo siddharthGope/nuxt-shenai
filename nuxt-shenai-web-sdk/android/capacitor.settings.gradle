@@ -2,5 +2,8 @@
 include ':capacitor-android'
 project(':capacitor-android').projectDir = new File('../node_modules/@capacitor/android/capacitor')
 
+include ':capacitor-community-sqlite'
+project(':capacitor-community-sqlite').projectDir = new File('../node_modules/@capacitor-community/sqlite/android')
+
 include ':shenai-capacitor-sdk'
 project(':shenai-capacitor-sdk').projectDir = new File('../node_modules/@shenai/capacitor-sdk/android')

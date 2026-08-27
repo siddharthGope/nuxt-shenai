@@ -9,9 +9,11 @@ const {
   progress,
   measuring,
   ready,
-  faceHint
+  faceHint,
+  applyStoredScan
 } = useShenAiCapacitor()
 const { heartRate, systolic, diastolic, stress, hrv } = useVitals()
+const { getLatestScan } = useHealthStore()
 
 const starting = ref(false)
 const error = ref('')
@@ -32,11 +34,18 @@ async function updateNativeCameraRect() {
 }
 
 let cameraResizeObserver: ResizeObserver | null = null
-onMounted(() => {
+onMounted(async () => {
   cameraResizeObserver = new ResizeObserver(() => void updateNativeCameraRect())
   if (stageEl.value) cameraResizeObserver.observe(stageEl.value)
   window.addEventListener('resize', updateNativeCameraRect)
   setCameraBackground(phase.value === 'scanning' || phase.value === 'measuring')
+
+  // Returning member: show the last stored scan immediately, no camera needed.
+  const latest = await getLatestScan().catch(() => null)
+  if (latest && phase.value === 'consent') {
+    applyStoredScan(latest)
+    phase.value = 'results'
+  }
 })
 onBeforeUnmount(() => {
   cameraResizeObserver?.disconnect()
@@ -59,7 +68,7 @@ async function begin() {
   error.value = ''
   starting.value = true
   try {
-    await initialize('user123')
+    await initialize()
     await nextTick()
     await updateNativeCameraRect()
     requestAnimationFrame(() => void updateNativeCameraRect())
