@@ -1,6 +1,7 @@
 import {
   ShenaiSdkCapacitor,
   CameraMode,
+  FamilyHistory,
   Gender,
   HypertensionTreatment,
   InitializationMode,
@@ -9,6 +10,8 @@ import {
   MeasurementPreset,
   OnboardingMode,
   OperatingMode,
+  ParentalHistory,
+  PhysicalActivity,
   Race,
   Screen,
   type HealthRisks,
@@ -16,6 +19,14 @@ import {
   type MeasurementResultsHistory,
   type RisksFactors
 } from '@shenai/capacitor-sdk'
+
+// The native Capacitor bridge always resolves `{ value: <payload> }`, but the
+// shipped typings claim the payload is returned directly.
+function unwrap<T>(response: unknown): T | null {
+  if (response == null) return null
+  const value = (response as { value?: T }).value
+  return value == null ? null : value
+}
 
 type NativeVitalsResult = {
   heartRate: number
@@ -39,6 +50,45 @@ type NativeHealthRiskInput = {
   treatedBp?: boolean
   bodyHeight?: number
   bodyWeight?: number
+  fastingGlucose?: number
+  triglycerides?: number
+  familyHistory?: string
+  diet?: string
+  activity?: string
+}
+
+function toParentalHistory(value?: string): ParentalHistory | undefined {
+  const normalized = value?.trim().toLowerCase()
+  if (!normalized) return undefined
+  if (normalized.startsWith('none')) return ParentalHistory.NONE
+  if (normalized.startsWith('one')) return ParentalHistory.ONE
+  if (normalized.startsWith('both')) return ParentalHistory.BOTH
+  return undefined
+}
+
+function toFamilyHistory(value?: string): FamilyHistory | undefined {
+  const normalized = value?.trim().toLowerCase()
+  if (!normalized) return undefined
+  if (normalized.startsWith('none')) return FamilyHistory.NONE
+  return FamilyHistory.FIRST_DEGREE
+}
+
+function toPhysicalActivity(value?: string): PhysicalActivity | undefined {
+  const normalized = value?.trim().toLowerCase()
+  if (!normalized) return undefined
+  if (normalized.startsWith('sedentary')) return PhysicalActivity.SEDENTARY
+  if (normalized.startsWith('light')) return PhysicalActivity.LIGHTLY_ACTIVE
+  if (normalized.startsWith('moderate')) return PhysicalActivity.MODERATELY
+  if (normalized.startsWith('very')) return PhysicalActivity.VERY_ACTIVE
+  if (normalized.startsWith('extra')) return PhysicalActivity.EXTRA_ACTIVE
+  return undefined
+}
+
+function toVegetableFruitDiet(value?: string): boolean | undefined {
+  const normalized = value?.trim().toLowerCase()
+  if (!normalized) return undefined
+  return normalized.includes('vegetarian') || normalized.includes('vegan')
+    || normalized.includes('balanced') || normalized.includes('mediterranean')
 }
 
 const emptyNativeVitalsResult = (): NativeVitalsResult => ({
@@ -72,13 +122,18 @@ function normalizeNativeResults(results: MeasurementResults | null): NativeVital
   }
 }
 
+function positiveOrUndefined(value?: number) {
+  return value != null && value > 0 ? value : undefined
+}
+
 function toRiskFactors(input: NativeHealthRiskInput): RisksFactors {
   const factors: RisksFactors = {
     age: input.age,
-    cholesterol: input.cholesterol,
-    cholesterolHdl: input.cholesterolHdl,
-    sbp: input.sbp,
-    dbp: input.dbp,
+    cholesterol: positiveOrUndefined(input.cholesterol),
+    cholesterolHdl: positiveOrUndefined(input.cholesterolHdl),
+    // A 0 mmHg reading means "not measured yet"; sending it poisons the model.
+    sbp: positiveOrUndefined(input.sbp),
+    dbp: positiveOrUndefined(input.dbp),
     isSmoker: input.isSmoker,
     hypertensionTreatment: input.treatedBp === true
       ? HypertensionTreatment.YES
@@ -86,8 +141,16 @@ function toRiskFactors(input: NativeHealthRiskInput): RisksFactors {
         ? HypertensionTreatment.NO
         : undefined,
     hasDiabetes: input.hasDiabetes,
-    bodyHeight: input.bodyHeight,
-    bodyWeight: input.bodyWeight,
+    historyOfHypertension: input.treatedBp ?? undefined,
+    historyOfHighGlucose: input.hasDiabetes ?? undefined,
+    bodyHeight: positiveOrUndefined(input.bodyHeight),
+    bodyWeight: positiveOrUndefined(input.bodyWeight),
+    fastingGlucose: positiveOrUndefined(input.fastingGlucose),
+    triglyceride: positiveOrUndefined(input.triglycerides),
+    parentalHypertension: toParentalHistory(input.familyHistory),
+    familyDiabetes: toFamilyHistory(input.familyHistory),
+    physicalActivity: toPhysicalActivity(input.activity),
+    vegetableFruitDiet: toVegetableFruitDiet(input.diet),
     gender: input.gender === 'female' ? Gender.FEMALE : input.gender === 'other' ? Gender.OTHER : Gender.MALE,
     country: 'US',
     race: Race.OTHER
@@ -214,7 +277,8 @@ export const useShenAiCapacitor = () => {
 
   async function getMeasurementResultsWithRetry(attempts = 5, delayMs = 250): Promise<MeasurementResults | null> {
     for (let attempt = 0; attempt < attempts; attempt++) {
-      const results = await ShenaiSdkCapacitor.getMeasurementResults().catch(() => null)
+      const response = await ShenaiSdkCapacitor.getMeasurementResults().catch(() => null)
+      const results = unwrap<MeasurementResults>(response)
       if (results) return results
       await new Promise((resolve) => setTimeout(resolve, delayMs))
     }
@@ -255,11 +319,12 @@ export const useShenAiCapacitor = () => {
       faceHint.value = 'Finalizing your results'
     }
 
-    const [liveResults, heartRate10s, heartRate4s] = await Promise.all([
-      ShenaiSdkCapacitor.getRealtimeMetrics({ periodSec: 30 }).catch(() => null),
+    const [liveResponse, heartRate10s, heartRate4s] = await Promise.all([
+      ShenaiSdkCapacitor.getRealtimeMetrics({ periodSec: 10 }).catch(() => null),
       ShenaiSdkCapacitor.getHeartRate10s().catch(() => ({ value: null })),
       ShenaiSdkCapacitor.getHeartRate4s().catch(() => ({ value: null }))
     ])
+    const liveResults = unwrap<MeasurementResults>(liveResponse)
     if (liveResults || heartRate10s.value != null || heartRate4s.value != null) {
       const next = normalizeNativeResults(liveResults)
       const latestHeartRate = heartRate4s.value ?? heartRate10s.value ?? liveResults?.heartRateBpm
@@ -297,8 +362,8 @@ export const useShenAiCapacitor = () => {
   }
 
   async function getMeasurementResults(): Promise<NativeVitalsResult> {
-    const results = await ShenaiSdkCapacitor.getMeasurementResults()
-    applyVitalsResult(mergeNativeResults(vitalsResult.value, results))
+    const response = await ShenaiSdkCapacitor.getMeasurementResults()
+    applyVitalsResult(mergeNativeResults(vitalsResult.value, unwrap<MeasurementResults>(response)))
     return vitalsResult.value
   }
 
@@ -359,11 +424,17 @@ export const useShenAiCapacitor = () => {
   }
 
   async function getMeasurementHistory(): Promise<MeasurementResultsHistory | null> {
-    return await ShenaiSdkCapacitor.getMeasurementResultsHistory()
+    const response = await ShenaiSdkCapacitor.getMeasurementResultsHistory()
+    const history = unwrap<MeasurementResultsHistory['history']>(response)
+    return history ? { history } : null
   }
 
-  async function computeHealthRisks(input: NativeHealthRiskInput): Promise<HealthRisks> {
-    return await ShenaiSdkCapacitor.computeHealthRisks({ risksFactors: toRiskFactors(input) })
+  async function computeHealthRisks(input: NativeHealthRiskInput): Promise<HealthRisks | null> {
+    if (!initialized.value) {
+      throw new Error('Shen.AI is not running. Start a scan before calculating your health risks.')
+    }
+    const response = await ShenaiSdkCapacitor.computeHealthRisks({ risksFactors: toRiskFactors(input) })
+    return unwrap<HealthRisks>(response)
   }
 
   async function stop() {

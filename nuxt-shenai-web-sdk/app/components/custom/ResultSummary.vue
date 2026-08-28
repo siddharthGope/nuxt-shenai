@@ -186,7 +186,9 @@ onMounted(async () => {
   // A returning member already answered the questionnaire, so recompute the
   // risks against the new scan instead of asking again.
   if (hasStoredProfile.value && hasLiveScan.value) {
-    await computeAndStoreRisks().catch(() => {})
+    await computeAndStoreRisks().catch((error) => {
+      console.warn('[ShenAI] Could not compute health risks:', error)
+    })
   }
 })
 
@@ -253,15 +255,20 @@ async function computeAndStoreRisks() {
   const risks = await computeHealthRisks({
     age: profile.age ?? undefined,
     gender: profile.gender ?? undefined,
-    sbp: vitalsView.value.systolic,
-    dbp: vitalsView.value.diastolic,
+    sbp: vitalsView.value.systolic || undefined,
+    dbp: vitalsView.value.diastolic || undefined,
     isSmoker: profile.smoker ?? undefined,
     hasDiabetes: profile.diabetes ?? undefined,
     treatedBp: profile.treatedBp ?? undefined,
     cholesterol: profile.cholesterol ?? undefined,
     cholesterolHdl: profile.hdl ?? undefined,
     bodyHeight: profile.height ?? undefined,
-    bodyWeight: profile.weight ?? undefined
+    bodyWeight: profile.weight ?? undefined,
+    fastingGlucose: profile.fastingGlucose ?? undefined,
+    triglycerides: profile.triglycerides ?? undefined,
+    familyHistory: profile.familyHistory ?? undefined,
+    diet: profile.diet ?? undefined,
+    activity: profile.activity ?? undefined
   })
 
   const overall = risks?.cvDiseases?.overallRisk
@@ -269,11 +276,15 @@ async function computeAndStoreRisks() {
   if (risks?.diabetesRisk != null) diabetesRisk.value = normalizeRiskPercent(risks.diabetesRisk)
   if (risks?.hypertensionRisk != null) hypertensionRisk.value = normalizeRiskPercent(risks.hypertensionRisk)
 
-  await saveRiskScores({
-    cardio: cardioRisk.value,
-    diabetes: diabetesRisk.value,
-    hypertension: hypertensionRisk.value
-  }).catch(() => {})
+  // Only overwrite the stored scores once at least one of them resolved, so a
+  // failed computation does not wipe the previously saved values.
+  if (cardioRisk.value != null || diabetesRisk.value != null || hypertensionRisk.value != null) {
+    await saveRiskScores({
+      cardio: cardioRisk.value,
+      diabetes: diabetesRisk.value,
+      hypertension: hypertensionRisk.value
+    }).catch(() => {})
+  }
 }
 
 async function submitRiskForm() {
@@ -283,15 +294,19 @@ async function submitRiskForm() {
     await saveRiskProfile(currentProfile())
     hasStoredProfile.value = true
     await computeAndStoreRisks()
+    if (cardioRisk.value == null) {
+      riskFormError.value = 'Saved, but your cardiovascular risk needs a completed scan (blood pressure, age, cholesterol).'
+      return
+    }
     showRiskForm.value = false
   } catch (error) {
     riskFormError.value = error instanceof Error ? error.message : 'Could not calculate your risk scores.'
   }
 }
 
+// Shen.AI already reports these risks as percentages.
 function normalizeRiskPercent(value: number) {
-  const percent = value <= 1 ? value * 100 : value
-  return Math.round(percent * 10) / 10
+  return Math.round(value * 10) / 10
 }
 
 function toNumber(value: string) {
