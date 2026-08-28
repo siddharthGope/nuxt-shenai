@@ -17,11 +17,21 @@ buildscript {
 
 apply from: "variables.gradle"
 
+def localBuildRoot = new File(
+    System.getenv('LOCALAPPDATA') ?: System.getProperty('java.io.tmpdir'),
+    'LumiAI/gradle-build'
+)
+rootProject.buildDir = new File(localBuildRoot, rootProject.name)
+
 allprojects {
     repositories {
         google()
         mavenCentral()
     }
+}
+
+subprojects {
+    buildDir = new File(rootProject.buildDir, project.name)
 }
 
 task clean(type: Delete) {
