@@ -8,6 +8,11 @@ export default defineNuxtConfig({
   // Use filename-based component names (no directory prefix) so components in
   // app/components/custom are referenced as <CameraView>, <HeartRateCard>, etc.
   components: [{ path: '~/components', pathPrefix: false }],
+  runtimeConfig: {
+    public: {
+      recommendationApiUrl: ''
+    }
+  },
   routeRules: {
     '/**': {
       headers: {

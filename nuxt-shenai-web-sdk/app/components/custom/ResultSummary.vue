@@ -1,10 +1,13 @@
 <script setup lang="ts">
+import type { HealthRisks } from '@shenai/capacitor-sdk'
 import type { RiskProfile, StoredScan } from '~/composables/useHealthStore'
 
 const { phase } = useScanState()
 const { stop, initialize, computeHealthRisks } = useShenAiCapacitor()
-const { heartRate, systolic, diastolic, stress, hrv } = useVitals()
+const { heartRate, systolic, diastolic, stress, hrv, respiration } = useVitals()
 const { getScanHistory, getRiskProfile, saveRiskProfile, getRiskScores, saveRiskScores } = useHealthStore()
+const { userId } = useCurrentUser()
+const { buildRecommendationPayload, sendRecommendationPayload } = useRecommendationPayload()
 
 const history = ref<StoredScan[]>([])
 
@@ -83,6 +86,7 @@ const hasStoredProfile = ref(false)
 const cardioRisk = ref<number | null>(null)
 const diabetesRisk = ref<number | null>(null)
 const hypertensionRisk = ref<number | null>(null)
+const latestRisks = ref<HealthRisks | null>(null)
 
 const form = reactive({
   name: '',
@@ -271,6 +275,7 @@ async function computeAndStoreRisks() {
     activity: profile.activity ?? undefined
   })
 
+  latestRisks.value = risks
   const overall = risks?.cvDiseases?.overallRisk
   if (typeof overall === 'number') cardioRisk.value = normalizeRiskPercent(overall)
   if (risks?.diabetesRisk != null) diabetesRisk.value = normalizeRiskPercent(risks.diabetesRisk)
@@ -285,6 +290,39 @@ async function computeAndStoreRisks() {
       hypertension: hypertensionRisk.value
     }).catch(() => {})
   }
+
+  await shareWithRecommendationAgent(profile)
+}
+
+function recommendationPayload(profile: RiskProfile) {
+  return buildRecommendationPayload({
+    userId: userId.value,
+    scanDate: scanDate.value,
+    measurements: {
+      heartRate: vitalsView.value.heartRate,
+      systolic: vitalsView.value.systolic,
+      diastolic: vitalsView.value.diastolic,
+      hrv: vitalsView.value.hrv,
+      stress: vitalsView.value.stress,
+      breathingRate: latestStored.value?.breathingRate ?? respiration.value
+    },
+    wellness: wellness.value,
+    bmi: bmi.value,
+    profile,
+    scores: {
+      cardio: cardioRisk.value,
+      diabetes: diabetesRisk.value,
+      hypertension: hypertensionRisk.value
+    },
+    risks: latestRisks.value
+  })
+}
+
+async function shareWithRecommendationAgent(profile: RiskProfile = currentProfile()) {
+  const payload = recommendationPayload(profile)
+  await sendRecommendationPayload(payload).catch((error) => {
+    console.warn('[ShenAI] Could not send the recommendation payload:', error)
+  })
 }
 
 async function submitRiskForm() {
