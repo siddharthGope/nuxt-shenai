@@ -91,6 +91,10 @@ function close() {
         <div v-if="measuring" class="progress">
           <span :style="{ width: progress + '%' }" />
         </div>
+
+        <button v-if="phase === 'camera'" class="btn start-btn" :disabled="starting" @click="begin">
+          {{ starting ? 'Starting…' : 'Start' }}
+        </button>
       </div>
 
       <footer class="footer">
@@ -117,22 +121,18 @@ function close() {
           Hold your phone at eye level in good lighting and look at the camera.
         </p>
 
-        <button v-if="phase === 'camera'" class="btn footer-btn" :disabled="starting" @click="begin">
-          {{ starting ? 'Starting…' : 'Start Scan' }}
-        </button>
-
-        <button
+        <!-- <button
           v-else-if="phase === 'scanning' && !measuring"
-          class="btn footer-btn"
+          class="btn footer-btn start-btn"
           :disabled="!ready"
           @click="startMeasurement"
         >
-          {{ ready ? 'Start Measurement' : faceHint }}
-        </button>
+          {{ ready ? 'Start' : faceHint }}
+        </button> -->
 
-        <button v-else-if="measuring" class="btn btn-ghost footer-btn" @click="stopMeasurement">
+        <!-- <button v-else-if="measuring" class="btn btn-ghost footer-btn" @click="stopMeasurement">
           Stop
-        </button>
+        </button> -->
 
         <p v-if="error" class="error">{{ error }}</p>
       </footer>
@@ -207,20 +207,20 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* padding: 24px; */
+  padding: 20px;
 }
 
 .topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 18px;
+  padding: 12px 14px 10px;
 }
-.title { font-weight: 700; font-size: 1.15rem; }
-.subtitle { font-size: 0.75rem; color: var(--muted); }
+.title { font-weight: 700; font-size: 0.94rem; }
+.subtitle { font-size: 0.62rem; color: var(--muted); margin-top: 2px; }
 .close {
-  width: 34px;
-  height: 34px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   border: none;
   background: #f1f5f9;
@@ -233,7 +233,7 @@ body {
 .stage {
   position: relative;
   width: 100%;
-  aspect-ratio: 3 / 4;
+  aspect-ratio: 0.82;
   background: #000;
   overflow: hidden;
 }
@@ -262,15 +262,15 @@ body {
 /* Face-position guide (corner brackets). */
 .guide {
   position: absolute;
-  inset: 12% 14%;
+  inset: 10% 12%;
   z-index: 3;
   pointer-events: none;
 }
 .br {
   position: absolute;
-  width: 28px;
-  height: 28px;
-  border: 3px solid var(--accent);
+  width: 25px;
+  height: 25px;
+  border: 2px solid var(--accent);
   transition: border-color 0.2s ease;
 }
 .guide.ok .br { border-color: #22c55e; }
@@ -313,14 +313,37 @@ body {
 
 .error { color: #dc2626; font-size: 0.85rem; text-align: center; padding: 8px 20px 0; }
 
-.footer { padding: 16px 18px 22px; }
+.footer { padding: 10px 14px 14px; }
 .footer-btn { width: 100%; }
 .view-results { width: 100%; margin-top: 14px; }
+.start-btn {
+  position: absolute;
+  z-index: 4;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+  width: auto;
+  min-width: 44px;
+  padding: 6px 15px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 5px;
+  color: #111827;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18);
+  font-size: 0.62rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.start-btn:hover { box-shadow: 0 3px 10px rgba(15, 23, 42, 0.24); }
+.start-btn:active { transform: translateX(-50%) translateY(1px); }
+.footer .start-btn { position: static; transform: none; width: 100%; }
+.footer .start-btn:active { transform: translateY(1px); }
 .instruction {
-  margin: 0 0 14px;
+  margin: 0 0 10px;
   text-align: center;
   color: var(--muted);
-  line-height: 1.5;
+  line-height: 1.35;
+  font-size: 0.66rem;
 }
 
 .metrics {
@@ -340,4 +363,15 @@ body {
 .v { font-size: 1.5rem; font-weight: 700; }
 .v small { font-size: 0.75rem; font-weight: 500; color: var(--muted); }
 .v.accent { color: var(--accent); }
+
+.phone {
+  width: min(100%, 360px);
+  max-height: calc(100vh - 40px);
+  border-radius: 24px;
+}
+
+@media (max-width: 420px) {
+  .app { padding: 10px; }
+  .phone { max-height: calc(100vh - 20px); }
+}
 </style>
