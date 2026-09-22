@@ -121,18 +121,18 @@ function close() {
           Hold your phone at eye level in good lighting and look at the camera.
         </p>
 
-        <!-- <button
-          v-else-if="phase === 'scanning' && !measuring"
+        <button
+          v-if="phase === 'scanning' && !measuring"
           class="btn footer-btn start-btn"
           :disabled="!ready"
           @click="startMeasurement"
         >
           {{ ready ? 'Start' : faceHint }}
-        </button> -->
+        </button>
 
-        <!-- <button v-else-if="measuring" class="btn btn-ghost footer-btn" @click="stopMeasurement">
+        <button v-else-if="measuring" class="btn btn-ghost footer-btn" @click="stopMeasurement">
           Stop
-        </button> -->
+        </button>
 
         <p v-if="error" class="error">{{ error }}</p>
       </footer>
