@@ -49,6 +49,8 @@ const wellness = computed(() =>
 const showWellnessInfo = ref(false)
 const showHypertensionInfo = ref(false)
 const showDiabetesInfo = ref(false)
+const showDiabetesForm = ref(false)
+const diabetesFormSubmitted = ref(false)
 const activeMetricInfo = ref<'heartRate' | 'bloodPressure' | 'hrv' | 'stress' | null>(null)
 
 const metricInfo = computed(() => {
@@ -138,6 +140,11 @@ const cardioRiskForm = reactive({
   height: '',
   weight: ''
 })
+const diabetesForm = reactive({
+  fastingGlucose: '',
+  hba1c: '',
+  triglycerides: ''
+})
 
 const insight = computed(() => {
   const bpRaised = bpStatus.value.tone !== 'good'
@@ -157,6 +164,11 @@ function openRiskCard(card: string) {
   if (card === 'Cardiovascular Disease Risk') {
     showCardioRiskForm.value = true
   }
+}
+
+function submitDiabetesForm() {
+  diabetesFormSubmitted.value = true
+  showDiabetesForm.value = false
 }
 
 function submitCardioRiskForm() {
@@ -331,7 +343,18 @@ async function scanAgain() {
           <i class="risk-chevron" />
         </button>
 <!-- hyper tension card / diabetes risk -->
-        <div class="risk-card assessment-card diabetes-card">
+        <button v-if="!diabetesFormSubmitted" class="risk-card diabetes-start-card" type="button" @click="showDiabetesForm = true">
+          <span>
+            <strong>Diabetes Risk Assessment</strong>
+            <small>Tap to start</small>
+          </span>
+          <svg class="assessment-edit" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 20h9" />
+            <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z" />
+          </svg>
+        </button>
+
+        <div v-else class="risk-card assessment-card diabetes-card">
           <div class="risk-card-heading">
             <strong>Diabetes Risk</strong>
             <button class="risk-info-button" type="button" aria-label="About Diabetes Risk" @click="showDiabetesInfo = true">
@@ -447,7 +470,7 @@ async function scanAgain() {
       </form>
     </div>
 
-    //wellness score modal
+    <!-- wellness score modal -->
     <div v-if="showWellnessInfo" class="wellness-modal" role="dialog" aria-modal="true" aria-labelledby="wellness-info-title" @click.self="showWellnessInfo = false">
       <section class="wellness-sheet">
         <div class="wellness-sheet-head">
@@ -532,8 +555,50 @@ async function scanAgain() {
         <div class="hypertension-score"><strong>{{ diabetesRisk }}</strong><span>%</span></div>
         <div class="hypertension-meter" :style="{ '--risk': diabetesRisk }"><span /></div>
 
-        <button class="assess-again" type="button" @click="scanAgain">Assess Again</button>
+        <button class="assess-again" type="button" @click="showDiabetesInfo = false; showDiabetesForm = true">Assess Again</button>
       </section>
+    </div>
+
+    <!-- Diabetes Form  -->
+    <div v-if="showDiabetesForm" class="risk-modal" role="dialog" aria-modal="true" aria-labelledby="diabetes-form-title" @click.self="showDiabetesForm = false">
+      <form class="risk-sheet diabetes-form-sheet" @submit.prevent="submitDiabetesForm">
+        <div class="wellness-sheet-head">
+          <h3 id="diabetes-form-title">Diabetes Risk</h3>
+          <button class="wellness-close" type="button" aria-label="Close Diabetes Risk assessment" @click="showDiabetesForm = false">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        </div>
+
+        <p class="diabetes-form-subtitle">What we already know</p>
+        <div class="risk-chips" aria-label="Known details">
+          <span>Age <b>46</b></span>
+          <span>Gender <b>Male</b></span>
+          <span>Blood Pressure <b>{{ systolic }}/{{ diastolic }} mmHg</b></span>
+        </div>
+
+        <p class="diabetes-form-subtitle">Health Parameters</p>
+        <p class="diabetes-form-hint">Check in your latest reports</p>
+        <div class="risk-input-grid">
+          <label>
+            <span>Fasting Glucose (mg/dL)</span>
+            <input v-model="diabetesForm.fastingGlucose" inputmode="numeric" placeholder="e.g. 95" />
+          </label>
+          <label>
+            <span>HbA1c (%)</span>
+            <input v-model="diabetesForm.hba1c" inputmode="decimal" placeholder="e.g. 5.4" />
+          </label>
+          <label>
+            <span>Triglycerides (mg/dL)</span>
+            <input v-model="diabetesForm.triglycerides" inputmode="numeric" placeholder="e.g. 95" />
+          </label>
+        </div>
+
+        <p class="diabetes-form-subtitle">Lifestyle &amp; History</p>
+        <p class="diabetes-form-hint">Add details from your health history if available.</p>
+        <button class="submit-risk diabetes-submit" type="submit">Submit</button>
+      </form>
     </div>
 
     <div class="ask-bar">
@@ -754,6 +819,38 @@ async function scanAgain() {
   color: #001a33;
   cursor: default;
 }
+.diabetes-start-card {
+  justify-content: space-between;
+  min-height: 112px;
+  color: #17191c;
+  text-align: left;
+}
+.diabetes-start-card span { gap: 8px; }
+.diabetes-start-card strong {
+  color: #17191c;
+  font-size: 1.05rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.diabetes-start-card small {
+  color: #55585d;
+  font-size: 1rem;
+  font-weight: 400;
+}
+.assessment-edit { color: #737980; flex: none; }
+.diabetes-form-sheet { max-height: calc(100% - 32px); }
+.diabetes-form-subtitle {
+  margin: 16px 0 7px !important;
+  color: #17191c !important;
+  font-size: 0.78rem !important;
+  font-weight: 700;
+}
+.diabetes-form-hint {
+  margin: 0 0 9px !important;
+  color: #737980 !important;
+  font-size: 0.72rem !important;
+}
+.diabetes-submit { margin-top: 18px; }
 .risk-card-heading {
   display: flex;
   align-items: center;
