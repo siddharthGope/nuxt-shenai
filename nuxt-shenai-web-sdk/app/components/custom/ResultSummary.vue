@@ -49,6 +49,46 @@ const wellness = computed(() =>
 const showWellnessInfo = ref(false)
 const showHypertensionInfo = ref(false)
 const showDiabetesInfo = ref(false)
+const activeMetricInfo = ref<'heartRate' | 'bloodPressure' | 'hrv' | 'stress' | null>(null)
+
+const metricInfo = computed(() => {
+  switch (activeMetricInfo.value) {
+    case 'heartRate':
+      return {
+        title: 'Heart Rate',
+        description: 'Measures average heartbeats per minute, reflecting autonomic nervous system activity and cardiovascular fitness.',
+        value: heartRate.value,
+        unit: 'bpm',
+        range: 'Normal resting range: 60-100 bpm'
+      }
+    case 'bloodPressure':
+      return {
+        title: 'Blood Pressure',
+        description: 'Measures blood pressure between heartbeats, which is important for assessing cardiovascular health.',
+        value: `${systolic.value}/${diastolic.value}`,
+        unit: 'mmHg',
+        range: 'Normal range: below 120/80 mmHg'
+      }
+    case 'hrv':
+      return {
+        title: 'Heart Rate Variability',
+        description: 'Measures variation in the time between heartbeats, reflecting autonomic nervous system activity.',
+        value: hrv.value,
+        unit: 'ms',
+        range: 'HRV has no universal normal range - it varies by age, time of day, and lifestyle.'
+      }
+    case 'stress':
+      return {
+        title: 'Stress Index',
+        description: 'Indicates whether the body is under stress or functioning normally.',
+        value: stress.value,
+        unit: '',
+        range: 'Normal range: 0-4'
+      }
+    default:
+      return null
+  }
+})
 
 const hypertensionRisk = computed(() => (bpStatus.value.tone === 'bad' ? 7 : bpStatus.value.tone === 'warn' ? 3.5 : 1.5))
 const diabetesRisk = 3
@@ -216,25 +256,57 @@ async function scanAgain() {
 
       <div class="grid">
         <div class="metric-card">
-          <div class="mc-top"><span>Heart Rate</span><i class="chev-sm" /></div>
+          <div class="mc-top">
+            <span>Heart Rate</span>
+            <button class="metric-info-button" type="button" aria-label="About Heart Rate" @click="activeMetricInfo = 'heartRate'">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 11v5M12 8h.01" />
+              </svg>
+            </button>
+          </div>
           <div class="mc-v">{{ heartRate }}<small>bpm</small></div>
           <div class="mc-status" :class="hrStatus.tone"><span class="dot" />{{ hrStatus.label }}</div>
         </div>
 
         <div class="metric-card">
-          <div class="mc-top"><span>Blood Pressure (est.)</span><i class="chev-sm" /></div>
+          <div class="mc-top">
+            <span>Blood Pressure (est.)</span>
+            <button class="metric-info-button" type="button" aria-label="About Blood Pressure" @click="activeMetricInfo = 'bloodPressure'">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 11v5M12 8h.01" />
+              </svg>
+            </button>
+          </div>
           <div class="mc-v">{{ systolic }}/{{ diastolic }}</div>
           <div class="mc-status" :class="bpStatus.tone"><span class="dot" />{{ bpStatus.label }}</div>
         </div>
 
         <div class="metric-card">
-          <div class="mc-top"><span>Heart Rate Variability</span><i class="chev-sm" /></div>
+          <div class="mc-top">
+            <span>Heart Rate Variability</span>
+            <button class="metric-info-button" type="button" aria-label="About Heart Rate Variability" @click="activeMetricInfo = 'hrv'">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 11v5M12 8h.01" />
+              </svg>
+            </button>
+          </div>
           <div class="mc-v">{{ hrv }}<small>ms</small></div>
           <div class="mc-status" :class="hrvStatus.tone"><span class="dot" />{{ hrvStatus.label }}</div>
         </div>
 
         <div class="metric-card">
-          <div class="mc-top"><span>Stress Level</span><i class="chev-sm" /></div>
+          <div class="mc-top">
+            <span>Stress Level</span>
+            <button class="metric-info-button" type="button" aria-label="About Stress Index" @click="activeMetricInfo = 'stress'">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 11v5M12 8h.01" />
+              </svg>
+            </button>
+          </div>
           <div class="mc-v">{{ stress }}</div>
           <div class="mc-status" :class="stressStatus.tone"><span class="dot" />{{ stressStatus.label }}</div>
         </div>
@@ -401,6 +473,25 @@ async function scanAgain() {
           <div><span class="scale-colour yellow" /> <strong>41-60</strong><small>Moderate wellness</small></div>
           <div><span class="scale-colour red" /> <strong>0-40</strong><small>Below-average wellness</small></div>
         </div>
+      </section>
+    </div>
+
+  <!-- metric info modal -->
+    <div v-if="metricInfo" class="hypertension-modal" role="dialog" aria-modal="true" :aria-labelledby="`${activeMetricInfo}-info-title`" @click.self="activeMetricInfo = null">
+      <section class="metric-info-sheet">
+        <div class="wellness-sheet-head">
+          <h3 :id="`${activeMetricInfo}-info-title`">{{ metricInfo.title }}</h3>
+          <button class="wellness-close" type="button" :aria-label="`Close ${metricInfo.title} information`" @click="activeMetricInfo = null">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        </div>
+
+        <p class="metric-info-description">{{ metricInfo.description }}</p>
+        <div class="metric-info-value"><strong>{{ metricInfo.value }}</strong><span>{{ metricInfo.unit }}</span></div>
+        <div class="metric-info-meter"><span /></div>
+        <p class="metric-info-range">{{ metricInfo.range }}</p>
       </section>
     </div>
 <!-- show hypertension info modal -->
@@ -592,6 +683,18 @@ async function scanAgain() {
   font-size: 0.8rem;
   color: var(--muted);
 }
+.metric-info-button {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #737980;
+  cursor: pointer;
+}
+.metric-info-button:hover { color: var(--text); }
 .chev-sm {
   width: 8px;
   height: 8px;
@@ -991,6 +1094,69 @@ async function scanAgain() {
   background: #f5f5f5;
   color: #17191c;
   cursor: pointer;
+}
+
+.metric-info-sheet {
+  width: 100%;
+  padding: 26px 26px 34px;
+  border-radius: 24px 24px 0 0;
+  background: #fff;
+  color: #17191c;
+  box-shadow: 0 -18px 34px rgba(15, 23, 42, 0.18);
+}
+
+.metric-info-description {
+  max-width: 330px;
+  margin: 10px 0 24px;
+  color: #55585d;
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.metric-info-value {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+  margin-bottom: 15px;
+}
+
+.metric-info-value strong {
+  color: #17191c;
+  font-size: 1.7rem;
+}
+
+.metric-info-value span {
+  color: #55585d;
+  font-size: 0.8rem;
+}
+
+.metric-info-meter {
+  position: relative;
+  height: 8px;
+  margin-bottom: 24px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #70c98d 0 33%, #f9c638 33% 66%, #ef4d78 66% 100%);
+}
+
+.metric-info-meter span {
+  position: absolute;
+  top: 50%;
+  left: 33%;
+  width: 17px;
+  height: 17px;
+  border: 1px solid #e4e7e9;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+  transform: translate(-50%, -50%);
+}
+
+.metric-info-range {
+  margin: 0;
+  color: #55585d;
+  font-size: 0.78rem;
+  line-height: 1.35;
 }
 
 .wellness-description,
