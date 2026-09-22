@@ -51,6 +51,8 @@ const showHypertensionInfo = ref(false)
 const showDiabetesInfo = ref(false)
 const showDiabetesForm = ref(false)
 const diabetesFormSubmitted = ref(false)
+const showHypertensionForm = ref(false)
+const hypertensionFormSubmitted = ref(false)
 const activeMetricInfo = ref<'heartRate' | 'bloodPressure' | 'hrv' | 'stress' | null>(null)
 
 const metricInfo = computed(() => {
@@ -145,6 +147,12 @@ const diabetesForm = reactive({
   hba1c: '',
   triglycerides: ''
 })
+const hypertensionForm = reactive({
+  smoker: '',
+  familyHistory: '',
+  height: '',
+  weight: ''
+})
 
 const insight = computed(() => {
   const bpRaised = bpStatus.value.tone !== 'good'
@@ -169,6 +177,11 @@ function openRiskCard(card: string) {
 function submitDiabetesForm() {
   diabetesFormSubmitted.value = true
   showDiabetesForm.value = false
+}
+
+function submitHypertensionForm() {
+  hypertensionFormSubmitted.value = true
+  showHypertensionForm.value = false
 }
 
 function submitCardioRiskForm() {
@@ -370,7 +383,19 @@ async function scanAgain() {
           <small class="risk-updated">Last updated: 08 Sept, 2026</small>
         </div>
 
-        <div class="risk-card hypertension-card">
+        <!-- Hypertension Risk Assessment -->
+        <button v-if="!hypertensionFormSubmitted" class="risk-card hypertension-start-card" type="button" @click="showHypertensionForm = true">
+          <span>
+            <strong>Hypertension Risk Assessment</strong>
+            <small>Tap to start</small>
+          </span>
+          <svg class="assessment-edit" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 20h9" />
+            <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z" />
+          </svg>
+        </button>
+
+        <div v-else class="risk-card hypertension-card">
           <div class="risk-card-heading">
             <strong>Hypertension Risk</strong>
             <button class="risk-info-button" type="button" aria-label="About Hypertension Risk" @click="showHypertensionInfo = true">
@@ -534,8 +559,61 @@ async function scanAgain() {
         <div class="hypertension-score"><strong>{{ hypertensionRisk }}</strong><span>%</span></div>
         <div class="hypertension-meter" :style="{ '--risk': hypertensionRisk }"><span /></div>
 
-        <button class="assess-again" type="button" @click="scanAgain">Assess Again</button>
+        <button class="assess-again" type="button" @click="showHypertensionInfo = false; showHypertensionForm = true">Assess Again</button>
       </section>
+    </div>
+
+    <!-- Hypertension Risk Assessment Form -->
+    <div v-if="showHypertensionForm" class="risk-modal" role="dialog" aria-modal="true" aria-labelledby="hypertension-form-title" @click.self="showHypertensionForm = false">
+      <form class="risk-sheet hypertension-form-sheet" @submit.prevent="submitHypertensionForm">
+        <div class="wellness-sheet-head">
+          <h3 id="hypertension-form-title">Hypertension Risk</h3>
+          <button class="wellness-close" type="button" aria-label="Close Hypertension Risk assessment" @click="showHypertensionForm = false">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        </div>
+
+        <p class="hypertension-description">Assesses the risk of high blood pressure and related cardiovascular issues.</p>
+
+        <p class="diabetes-form-subtitle">What we already know</p>
+        <div class="risk-chips" aria-label="Known details">
+          <span>Age <b>46</b></span>
+          <span>Gender <b>Male</b></span>
+          <span>Blood Pressure <b>{{ systolic }}/{{ diastolic }} mmHg</b></span>
+        </div>
+
+        <p class="diabetes-form-subtitle">Lifestyle &amp; History</p>
+        <fieldset class="choice-group">
+          <legend>Current smoker</legend>
+          <div class="choice-row">
+            <button type="button" :class="{ selected: hypertensionForm.smoker === 'yes' }" @click="hypertensionForm.smoker = 'yes'">Yes</button>
+            <button type="button" :class="{ selected: hypertensionForm.smoker === 'no' }" @click="hypertensionForm.smoker = 'no'">No</button>
+          </div>
+        </fieldset>
+
+        <fieldset class="choice-group">
+          <legend>Hypertension in either parent</legend>
+          <div class="choice-row">
+            <button type="button" :class="{ selected: hypertensionForm.familyHistory === 'yes' }" @click="hypertensionForm.familyHistory = 'yes'">Yes</button>
+            <button type="button" :class="{ selected: hypertensionForm.familyHistory === 'no' }" @click="hypertensionForm.familyHistory = 'no'">No</button>
+          </div>
+        </fieldset>
+
+        <div class="risk-input-grid">
+          <label>
+            <span>Height (cm)</span>
+            <input v-model="hypertensionForm.height" inputmode="numeric" placeholder="e.g. 170" />
+          </label>
+          <label>
+            <span>Weight (kg)</span>
+            <input v-model="hypertensionForm.weight" inputmode="numeric" placeholder="e.g. 90" />
+          </label>
+        </div>
+
+        <button class="submit-risk hypertension-submit" type="submit">Submit</button>
+      </form>
     </div>
 
     <!-- diabetes risk info modal -->
@@ -851,6 +929,26 @@ async function scanAgain() {
   font-size: 0.72rem !important;
 }
 .diabetes-submit { margin-top: 18px; }
+.hypertension-start-card {
+  justify-content: space-between;
+  min-height: 112px;
+  color: #17191c;
+  text-align: left;
+}
+.hypertension-start-card span { gap: 8px; }
+.hypertension-start-card strong {
+  color: #17191c;
+  font-size: 1.05rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.hypertension-start-card small {
+  color: #55585d;
+  font-size: 1rem;
+  font-weight: 400;
+}
+.hypertension-form-sheet { max-height: calc(100% - 32px); }
+.hypertension-submit { margin-top: 18px; }
 .risk-card-heading {
   display: flex;
   align-items: center;
