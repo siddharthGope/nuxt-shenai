@@ -48,8 +48,10 @@ const wellness = computed(() =>
 
 const showWellnessInfo = ref(false)
 const showHypertensionInfo = ref(false)
+const showDiabetesInfo = ref(false)
 
 const hypertensionRisk = computed(() => (bpStatus.value.tone === 'bad' ? 7 : bpStatus.value.tone === 'warn' ? 3.5 : 1.5))
+const diabetesRisk = 3
 
 const wellnessInterpretation = computed(() => {
   if (wellness.value >= 61) {
@@ -73,14 +75,14 @@ const wellnessInterpretation = computed(() => {
 })
 
 const riskCards = [
-  'Cardiovascular Disease Risk',
+  // 'Cardiovascular Disease Risk',
   'Diabetes Risk',
   'Hypertension Risk'
 ]
 
 const visibleRiskCards = computed(() =>
   riskCards.filter((card) =>
-    (cardioRisk.value != null || card !== 'Cardiovascular Disease Risk') && card !== 'Hypertension Risk'
+    (cardioRisk.value != null || card !== 'Cardiovascular Disease Risk') && card !== 'Hypertension Risk' && card !== 'Diabetes Risk'
   )
 )
 
@@ -256,7 +258,23 @@ async function scanAgain() {
           </span>
           <i class="risk-chevron" />
         </button>
-<!-- hyper tension card -->
+<!-- hyper tension card / diabetes risk -->
+        <div class="risk-card assessment-card diabetes-card">
+          <div class="risk-card-heading">
+            <strong>Diabetes Risk</strong>
+            <button class="risk-info-button" type="button" aria-label="About Diabetes Risk" @click="showDiabetesInfo = true">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 11v5M12 8h.01" />
+              </svg>
+            </button>
+          </div>
+          <b>{{ diabetesRisk }}<small>%</small></b>
+          <span class="risk-level">Low Risk</span>
+          <i class="risk-meter" :style="{ '--risk': diabetesRisk }"><em /></i>
+          <small class="risk-updated">Last updated: 08 Sept, 2026</small>
+        </div>
+
         <div class="risk-card hypertension-card">
           <div class="risk-card-heading">
             <strong>Hypertension Risk</strong>
@@ -401,6 +419,27 @@ async function scanAgain() {
 
         <div class="hypertension-score"><strong>{{ hypertensionRisk }}</strong><span>%</span></div>
         <div class="hypertension-meter" :style="{ '--risk': hypertensionRisk }"><span /></div>
+
+        <button class="assess-again" type="button" @click="scanAgain">Assess Again</button>
+      </section>
+    </div>
+
+    <!-- diabetes risk info modal -->
+    <div v-if="showDiabetesInfo" class="hypertension-modal" role="dialog" aria-modal="true" aria-labelledby="diabetes-info-title" @click.self="showDiabetesInfo = false">
+      <section class="hypertension-sheet">
+        <div class="wellness-sheet-head">
+          <h3 id="diabetes-info-title">Diabetes Risk</h3>
+          <button class="wellness-close" type="button" aria-label="Close Diabetes Risk information" @click="showDiabetesInfo = false">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        </div>
+
+        <p class="hypertension-description">Estimates the risk of developing diabetes. Score is based on Framingham Diabetes Risk Score and Finnish Diabetes Risk Score (FINDRISC)</p>
+
+        <div class="hypertension-score"><strong>{{ diabetesRisk }}</strong><span>%</span></div>
+        <div class="hypertension-meter" :style="{ '--risk': diabetesRisk }"><span /></div>
 
         <button class="assess-again" type="button" @click="scanAgain">Assess Again</button>
       </section>
@@ -606,6 +645,122 @@ async function scanAgain() {
   text-transform: uppercase;
 }
 .risk-card small { color: #d45b0a; font-weight: 700; font-size: 0.82rem; }
+
+.assessment-card {
+  display: block;
+  color: #001a33;
+  cursor: default;
+}
+.risk-card-heading {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.risk-info-button {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #737980;
+  cursor: pointer;
+}
+.assessment-card > b {
+  display: inline-block;
+  margin-top: 7px;
+  color: #17191c;
+  font-size: 1.75rem;
+  line-height: 1;
+}
+.assessment-card > b small {
+  color: #55585d;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+.risk-level {
+  margin-left: 5px;
+  color: #55585d;
+  font-size: 0.82rem;
+}
+.risk-updated {
+  display: block;
+  margin-top: 8px;
+  color: #55585d !important;
+  font-size: 0.72rem !important;
+  font-weight: 400 !important;
+}
+
+.hypertension-modal {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(0, 0, 0, 0.38);
+}
+.hypertension-sheet {
+  width: 100%;
+  padding: 26px 26px 40px;
+  border-radius: 24px 24px 0 0;
+  background: #fff;
+  color: #17191c;
+  box-shadow: 0 -18px 34px rgba(15, 23, 42, 0.18);
+}
+.hypertension-description {
+  max-width: 330px;
+  margin: 10px 0 26px;
+  color: #55585d;
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+.hypertension-score {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+  margin-bottom: 15px;
+}
+.hypertension-score strong {
+  color: #17191c;
+  font-size: 1.7rem;
+}
+.hypertension-score span {
+  color: #55585d;
+  font-size: 0.8rem;
+}
+.hypertension-meter {
+  --risk: 0;
+  position: relative;
+  height: 8px;
+  margin-bottom: 28px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #70c98d 0 33%, #f9c638 33% 66%, #ef4d78 66% 100%);
+}
+.hypertension-meter span {
+  position: absolute;
+  top: 50%;
+  left: clamp(7px, calc(var(--risk) * 1%), calc(100% - 7px));
+  width: 17px;
+  height: 17px;
+  border: 1px solid #e4e7e9;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+  transform: translate(-50%, -50%);
+}
+.assess-again {
+  width: 100%;
+  height: 57px;
+  border: 0;
+  border-radius: 999px;
+  background: #001a33;
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
 
 .risk-card-result {
   align-items: flex-start;
