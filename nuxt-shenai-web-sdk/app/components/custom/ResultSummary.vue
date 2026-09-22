@@ -440,7 +440,54 @@ async function scanAgain() {
       </section>
     </div>
 
-    <div v-if="showCardioRiskForm" class="risk-modal" role="dialog" aria-modal="true" aria-labelledby="cardio-risk-title" @click.self="showCardioRiskForm = false">
+    <ResultModals
+      :show-cardio-risk-form="showCardioRiskForm"
+      :show-wellness-info="showWellnessInfo"
+      :metric-info="metricInfo"
+      :active-metric-info="activeMetricInfo"
+      :show-hypertension-info="showHypertensionInfo"
+      :show-hypertension-form="showHypertensionForm"
+      :show-diabetes-info="showDiabetesInfo"
+      :show-diabetes-form="showDiabetesForm"
+      :wellness="wellness"
+      :wellness-interpretation="wellnessInterpretation"
+      :hypertension-risk="hypertensionRisk"
+      :diabetes-risk="diabetesRisk"
+      :systolic="systolic"
+      :diastolic="diastolic"
+      :cardio-risk-form="cardioRiskForm"
+      :diabetes-form="diabetesForm"
+      :hypertension-form="hypertensionForm"
+      :cardio-risk-error="cardioRiskError"
+      @close-cardio-risk-form="showCardioRiskForm = false"
+      @submit-cardio-risk-form="submitCardioRiskForm"
+      @close-wellness-info="showWellnessInfo = false"
+      @close-metric-info="activeMetricInfo = null"
+      @close-hypertension-info="showHypertensionInfo = false"
+      @open-hypertension-form="showHypertensionInfo = false; showHypertensionForm = true"
+      @close-hypertension-form="showHypertensionForm = false"
+      @submit-hypertension-form="submitHypertensionForm"
+      @close-diabetes-info="showDiabetesInfo = false"
+      @open-diabetes-form="showDiabetesInfo = false; showDiabetesForm = true"
+      @close-diabetes-form="showDiabetesForm = false"
+      @submit-diabetes-form="submitDiabetesForm"
+    />
+
+    <ResultForms
+      :show-hypertension-form="showHypertensionForm"
+      :show-diabetes-form="showDiabetesForm"
+      :systolic="systolic"
+      :diastolic="diastolic"
+      :diabetes-form="diabetesForm"
+      :hypertension-form="hypertensionForm"
+      @close-hypertension-form="showHypertensionForm = false"
+      @submit-hypertension-form="submitHypertensionForm"
+      @close-diabetes-form="showDiabetesForm = false"
+      @submit-diabetes-form="submitDiabetesForm"
+    />
+
+    <!-- Legacy inline modal markup is being removed below. -->
+    <div v-if="false && showCardioRiskForm" class="risk-modal" role="dialog" aria-modal="true" aria-labelledby="cardio-risk-title" @click.self="showCardioRiskForm = false">
       <form class="risk-sheet" @submit.prevent="submitCardioRiskForm">
         <h3 id="cardio-risk-title">Missing Information</h3>
         <p>A few more details to calculate your Cardiovascular Risk Score.</p>
@@ -503,7 +550,7 @@ async function scanAgain() {
     </div>
 
     <!-- wellness score modal -->
-    <div v-if="showWellnessInfo" class="wellness-modal" role="dialog" aria-modal="true" aria-labelledby="wellness-info-title" @click.self="showWellnessInfo = false">
+    <div v-if="false && showWellnessInfo" class="wellness-modal" role="dialog" aria-modal="true" aria-labelledby="wellness-info-title" @click.self="showWellnessInfo = false">
       <section class="wellness-sheet">
         <div class="wellness-sheet-head">
           <h3 id="wellness-info-title">Wellness Score</h3>
@@ -532,7 +579,7 @@ async function scanAgain() {
     </div>
 
   <!-- metric info modal -->
-    <div v-if="metricInfo" class="hypertension-modal" role="dialog" aria-modal="true" :aria-labelledby="`${activeMetricInfo}-info-title`" @click.self="activeMetricInfo = null">
+    <div v-if="false && metricInfo" class="hypertension-modal" role="dialog" aria-modal="true" :aria-labelledby="`${activeMetricInfo}-info-title`" @click.self="activeMetricInfo = null">
       <section class="metric-info-sheet">
         <div class="wellness-sheet-head">
           <h3 :id="`${activeMetricInfo}-info-title`">{{ metricInfo.title }}</h3>
@@ -550,7 +597,7 @@ async function scanAgain() {
       </section>
     </div>
 <!-- show hypertension info modal -->
-    <div v-if="showHypertensionInfo" class="hypertension-modal" role="dialog" aria-modal="true" aria-labelledby="hypertension-info-title" @click.self="showHypertensionInfo = false">
+    <div v-if="false && showHypertensionInfo" class="hypertension-modal" role="dialog" aria-modal="true" aria-labelledby="hypertension-info-title" @click.self="showHypertensionInfo = false">
       <section class="hypertension-sheet">
         <div class="wellness-sheet-head">
           <h3 id="hypertension-info-title">Hypertension Risk</h3>
@@ -570,61 +617,8 @@ async function scanAgain() {
       </section>
     </div>
 
-    <!-- Hypertension Risk Assessment Form -->
-    <div v-if="showHypertensionForm" class="risk-modal" role="dialog" aria-modal="true" aria-labelledby="hypertension-form-title" @click.self="showHypertensionForm = false">
-      <form class="risk-sheet hypertension-form-sheet" @submit.prevent="submitHypertensionForm">
-        <div class="wellness-sheet-head">
-          <h3 id="hypertension-form-title">Hypertension Risk</h3>
-          <button class="wellness-close" type="button" aria-label="Close Hypertension Risk assessment" @click="showHypertensionForm = false">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-              <path d="M6 6l12 12M18 6L6 18" />
-            </svg>
-          </button>
-        </div>
-
-        <p class="hypertension-description">Assesses the risk of high blood pressure and related cardiovascular issues.</p>
-
-        <p class="diabetes-form-subtitle">What we already know</p>
-        <div class="risk-chips" aria-label="Known details">
-          <span>Age <b>46</b></span>
-          <span>Gender <b>Male</b></span>
-          <span>Blood Pressure <b>{{ systolic }}/{{ diastolic }} mmHg</b></span>
-        </div>
-
-        <p class="diabetes-form-subtitle">Lifestyle &amp; History</p>
-        <fieldset class="choice-group">
-          <legend>Current smoker</legend>
-          <div class="choice-row">
-            <button type="button" :class="{ selected: hypertensionForm.smoker === 'yes' }" @click="hypertensionForm.smoker = 'yes'">Yes</button>
-            <button type="button" :class="{ selected: hypertensionForm.smoker === 'no' }" @click="hypertensionForm.smoker = 'no'">No</button>
-          </div>
-        </fieldset>
-
-        <fieldset class="choice-group">
-          <legend>Hypertension in either parent</legend>
-          <div class="choice-row">
-            <button type="button" :class="{ selected: hypertensionForm.familyHistory === 'yes' }" @click="hypertensionForm.familyHistory = 'yes'">Yes</button>
-            <button type="button" :class="{ selected: hypertensionForm.familyHistory === 'no' }" @click="hypertensionForm.familyHistory = 'no'">No</button>
-          </div>
-        </fieldset>
-
-        <div class="risk-input-grid">
-          <label>
-            <span>Height (cm)</span>
-            <input v-model="hypertensionForm.height" inputmode="numeric" placeholder="e.g. 170" />
-          </label>
-          <label>
-            <span>Weight (kg)</span>
-            <input v-model="hypertensionForm.weight" inputmode="numeric" placeholder="e.g. 90" />
-          </label>
-        </div>
-
-        <button class="submit-risk hypertension-submit" type="submit">Submit</button>
-      </form>
-    </div>
-
     <!-- diabetes risk info modal -->
-    <div v-if="showDiabetesInfo" class="hypertension-modal" role="dialog" aria-modal="true" aria-labelledby="diabetes-info-title" @click.self="showDiabetesInfo = false">
+    <div v-if="false && showDiabetesInfo" class="hypertension-modal" role="dialog" aria-modal="true" aria-labelledby="diabetes-info-title" @click.self="showDiabetesInfo = false">
       <section class="hypertension-sheet">
         <div class="wellness-sheet-head">
           <h3 id="diabetes-info-title">Diabetes Risk</h3>
@@ -642,48 +636,6 @@ async function scanAgain() {
 
         <button class="assess-again" type="button" @click="showDiabetesInfo = false; showDiabetesForm = true">Assess Again</button>
       </section>
-    </div>
-
-    <!-- Diabetes Form  -->
-    <div v-if="showDiabetesForm" class="risk-modal" role="dialog" aria-modal="true" aria-labelledby="diabetes-form-title" @click.self="showDiabetesForm = false">
-      <form class="risk-sheet diabetes-form-sheet" @submit.prevent="submitDiabetesForm">
-        <div class="wellness-sheet-head">
-          <h3 id="diabetes-form-title">Diabetes Risk</h3>
-          <button class="wellness-close" type="button" aria-label="Close Diabetes Risk assessment" @click="showDiabetesForm = false">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-              <path d="M6 6l12 12M18 6L6 18" />
-            </svg>
-          </button>
-        </div>
-
-        <p class="diabetes-form-subtitle">What we already know</p>
-        <div class="risk-chips" aria-label="Known details">
-          <span>Age <b>46</b></span>
-          <span>Gender <b>Male</b></span>
-          <span>Blood Pressure <b>{{ systolic }}/{{ diastolic }} mmHg</b></span>
-        </div>
-
-        <p class="diabetes-form-subtitle">Health Parameters</p>
-        <p class="diabetes-form-hint">Check in your latest reports</p>
-        <div class="risk-input-grid">
-          <label>
-            <span>Fasting Glucose (mg/dL)</span>
-            <input v-model="diabetesForm.fastingGlucose" inputmode="numeric" placeholder="e.g. 95" />
-          </label>
-          <label>
-            <span>HbA1c (%)</span>
-            <input v-model="diabetesForm.hba1c" inputmode="decimal" placeholder="e.g. 5.4" />
-          </label>
-          <label>
-            <span>Triglycerides (mg/dL)</span>
-            <input v-model="diabetesForm.triglycerides" inputmode="numeric" placeholder="e.g. 95" />
-          </label>
-        </div>
-
-        <p class="diabetes-form-subtitle">Lifestyle &amp; History</p>
-        <p class="diabetes-form-hint">Add details from your health history if available.</p>
-        <button class="submit-risk diabetes-submit" type="submit">Submit</button>
-      </form>
     </div>
 
     <div class="ask-bar">
