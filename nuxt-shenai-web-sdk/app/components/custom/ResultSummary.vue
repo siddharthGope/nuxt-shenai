@@ -47,6 +47,9 @@ const wellness = computed(() =>
 )
 
 const showWellnessInfo = ref(false)
+const showHypertensionInfo = ref(false)
+
+const hypertensionRisk = computed(() => (bpStatus.value.tone === 'bad' ? 7 : bpStatus.value.tone === 'warn' ? 3.5 : 1.5))
 
 const wellnessInterpretation = computed(() => {
   if (wellness.value >= 61) {
@@ -76,7 +79,9 @@ const riskCards = [
 ]
 
 const visibleRiskCards = computed(() =>
-  riskCards.filter((card) => cardioRisk.value == null || card !== 'Cardiovascular Disease Risk')
+  riskCards.filter((card) =>
+    (cardioRisk.value != null || card !== 'Cardiovascular Disease Risk') && card !== 'Hypertension Risk'
+  )
 )
 
 const showCardioRiskForm = ref(false)
@@ -251,6 +256,22 @@ async function scanAgain() {
           </span>
           <i class="risk-chevron" />
         </button>
+<!-- hyper tension card -->
+        <div class="risk-card hypertension-card">
+          <div class="risk-card-heading">
+            <strong>Hypertension Risk</strong>
+            <button class="risk-info-button" type="button" aria-label="About Hypertension Risk" @click="showHypertensionInfo = true">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 11v5M12 8h.01" />
+              </svg>
+            </button>
+          </div>
+          <b>{{ hypertensionRisk }}<small>%</small></b>
+          <span class="risk-level">Low Risk</span>
+          <i class="risk-meter" :style="{ '--risk': hypertensionRisk }"><em /></i>
+          <small class="risk-updated">Last updated: 08 Sept, 2026</small>
+        </div>
 
         <button v-for="card in visibleRiskCards" :key="card" class="risk-card" type="button" @click="openRiskCard(card)">
           <svg class="risk-lock" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -362,6 +383,26 @@ async function scanAgain() {
           <div><span class="scale-colour yellow" /> <strong>41-60</strong><small>Moderate wellness</small></div>
           <div><span class="scale-colour red" /> <strong>0-40</strong><small>Below-average wellness</small></div>
         </div>
+      </section>
+    </div>
+<!-- show hypertension info modal -->
+    <div v-if="showHypertensionInfo" class="hypertension-modal" role="dialog" aria-modal="true" aria-labelledby="hypertension-info-title" @click.self="showHypertensionInfo = false">
+      <section class="hypertension-sheet">
+        <div class="wellness-sheet-head">
+          <h3 id="hypertension-info-title">Hypertension Risk</h3>
+          <button class="wellness-close" type="button" aria-label="Close Hypertension Risk information" @click="showHypertensionInfo = false">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        </div>
+
+        <p class="hypertension-description">Assesses the risk of high blood pressure and related cardiovascular issues. Score is based on Framingham Heart Study.</p>
+
+        <div class="hypertension-score"><strong>{{ hypertensionRisk }}</strong><span>%</span></div>
+        <div class="hypertension-meter" :style="{ '--risk': hypertensionRisk }"><span /></div>
+
+        <button class="assess-again" type="button" @click="scanAgain">Assess Again</button>
       </section>
     </div>
 
