@@ -384,6 +384,8 @@ async function scanAgain() {
         </div>
 
         <!-- Hypertension Risk Assessment -->
+        <p v-if="!hypertensionFormSubmitted" class="risk-intro">Ready to know more about your health? Assess your risks in under a minute.</p>
+
         <button v-if="!hypertensionFormSubmitted" class="risk-card hypertension-start-card" type="button" @click="showHypertensionForm = true">
           <span>
             <strong>Hypertension Risk Assessment</strong>
@@ -395,9 +397,13 @@ async function scanAgain() {
           </svg>
         </button>
 
-        <div v-else class="risk-card hypertension-card">
+        <!-- Hypertension Risk Assessment Result -->
+        <p v-if="hypertensionFormSubmitted" class="risk-intro">Do you want to assess your risk again?</p>
+
+        <!-- Hypertension Risk Assessment Card -->
+        <div v-if="hypertensionFormSubmitted" class="risk-card assessment-card hypertension-card">
           <div class="risk-card-heading">
-            <strong>Hypertension Risk</strong>
+            <strong>Hypertension Risk Assessment</strong>
             <button class="risk-info-button" type="button" aria-label="About Hypertension Risk" @click="showHypertensionInfo = true">
               <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
                 <circle cx="12" cy="12" r="9" />
@@ -409,6 +415,7 @@ async function scanAgain() {
           <span class="risk-level">Low Risk</span>
           <i class="risk-meter" :style="{ '--risk': hypertensionRisk }"><em /></i>
           <small class="risk-updated">Last updated: 08 Sept, 2026</small>
+          <button class="card-assess-again" type="button" @click="showHypertensionForm = true">Assess Again</button>
         </div>
 
         <button v-for="card in visibleRiskCards" :key="card" class="risk-card" type="button" @click="openRiskCard(card)">
@@ -931,24 +938,68 @@ async function scanAgain() {
 .diabetes-submit { margin-top: 18px; }
 .hypertension-start-card {
   justify-content: space-between;
-  min-height: 112px;
+  min-height: 80px;
   color: #17191c;
   text-align: left;
+  padding: 15px 16px;
+  border-radius: 10px;
 }
 .hypertension-start-card span { gap: 8px; }
 .hypertension-start-card strong {
   color: #17191c;
-  font-size: 1.05rem;
+  font-size: 1rem;
   letter-spacing: 0;
   text-transform: none;
 }
 .hypertension-start-card small {
   color: #55585d;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 400;
+}
+.risk-intro {
+  margin: 4px 0 2px;
+  color: #17191c;
+  line-height: 1.45;
 }
 .hypertension-form-sheet { max-height: calc(100% - 32px); }
 .hypertension-submit { margin-top: 18px; }
+.hypertension-card {
+  min-height: 278px;
+  padding: 28px 30px;
+  border-radius: 20px;
+}
+.hypertension-card .risk-card-heading strong {
+  font-size: 1.05rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.hypertension-card > b {
+  margin-top: 18px;
+  font-size: 2.2rem;
+}
+.hypertension-card .risk-level {
+  font-size: 1rem;
+}
+.hypertension-card .risk-meter {
+  margin-top: 22px;
+}
+.hypertension-card .risk-updated {
+  margin-top: 12px;
+  font-size: 0.95rem !important;
+}
+.card-assess-again {
+  width: 100%;
+  height: 64px;
+  margin-top: 18px;
+  border: 1px solid #001a33;
+  border-radius: 999px;
+  background: #fff;
+  color: #001a33;
+  font: inherit;
+  font-size: 1.15rem;
+  font-weight: 700;
+  cursor: pointer;
+}
 .risk-card-heading {
   display: flex;
   align-items: center;
