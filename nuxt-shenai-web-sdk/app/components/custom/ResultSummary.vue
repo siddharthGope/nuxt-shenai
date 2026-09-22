@@ -46,6 +46,29 @@ const wellness = computed(() =>
   )
 )
 
+const showWellnessInfo = ref(false)
+
+const wellnessInterpretation = computed(() => {
+  if (wellness.value >= 61) {
+    return {
+      label: 'Excellent',
+      text: 'Key health parameters are in ideal ranges, and you likely have strong protective factors against chronic disease and aging related risks.'
+    }
+  }
+
+  if (wellness.value >= 41) {
+    return {
+      label: 'Moderate',
+      text: 'Your results suggest there is room to improve some health parameters. Small, consistent lifestyle changes can support your overall wellbeing.'
+    }
+  }
+
+  return {
+    label: 'Needs attention',
+    text: 'Your results suggest that some health parameters may need attention. Speak with a healthcare professional about your results and next steps.'
+  }
+})
+
 const riskCards = [
   'Cardiovascular Disease Risk',
   'Diabetes Risk',
@@ -163,7 +186,15 @@ async function scanAgain() {
 
       <div class="score-card">
         <div class="score-info">
-          <div class="score-k">WELLNESS SCORE</div>
+          <div class="score-k">
+            <span>WELLNESS SCORE</span>
+            <button class="score-info-btn" type="button" aria-label="About Wellness Score" @click="showWellnessInfo = true">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 11v5M12 8h.01" />
+              </svg>
+            </button>
+          </div>
           <div class="score-v">{{ wellness }}<small> / 100</small></div>
         </div>
         <div class="ring" :style="{ '--p': wellness }">
@@ -305,6 +336,35 @@ async function scanAgain() {
       </form>
     </div>
 
+    //wellness score modal
+    <div v-if="showWellnessInfo" class="wellness-modal" role="dialog" aria-modal="true" aria-labelledby="wellness-info-title" @click.self="showWellnessInfo = false">
+      <section class="wellness-sheet">
+        <div class="wellness-sheet-head">
+          <h3 id="wellness-info-title">Wellness Score</h3>
+          <button class="wellness-close" type="button" aria-label="Close Wellness Score information" @click="showWellnessInfo = false">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        </div>
+
+        <p class="wellness-description">An indication of your overall wellbeing based on this assessment.</p>
+        <p class="wellness-disclaimer">It is not a diagnosis or a substitute for medical advice. Speak with a healthcare professional if you have concerns.</p>
+
+        <div class="wellness-modal-score">
+          <div class="wellness-ring" :style="{ '--p': wellness }"><span>{{ wellness }}</span><small>out of 100</small></div>
+        </div>
+
+        <p class="wellness-result"><strong>Result Interpretation:</strong> {{ wellnessInterpretation.label }}; {{ wellnessInterpretation.text }}</p>
+
+        <div class="wellness-scale" aria-label="Wellness Score grading scale">
+          <div><span class="scale-colour green" /> <strong>61-100</strong><small>Above-average wellness</small></div>
+          <div><span class="scale-colour yellow" /> <strong>41-60</strong><small>Moderate wellness</small></div>
+          <div><span class="scale-colour red" /> <strong>0-40</strong><small>Below-average wellness</small></div>
+        </div>
+      </section>
+    </div>
+
     <div class="ask-bar">
       <span class="ask-ph">Ask Lumi AI</span>
       <div class="ask-actions">
@@ -401,7 +461,20 @@ async function scanAgain() {
   margin-top: 18px;
 }
 .score-info { flex: 1; }
-.score-k { font-size: 0.7rem; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
+.score-k { display: flex; align-items: center; gap: 5px; font-size: 0.7rem; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
+.score-info-btn {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.score-info-btn:hover { color: var(--text); }
 .score-v { font-size: 2rem; font-weight: 800; }
 .score-v small { font-size: 1rem; font-weight: 500; color: var(--muted); }
 .ring {
@@ -678,6 +751,124 @@ async function scanAgain() {
   color: #dc2626 !important;
   font-size: 0.75rem !important;
 }
+
+.wellness-modal {
+  position: absolute;
+  inset: 0;
+  z-index: 11;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(0, 0, 0, 0.38);
+}
+
+.wellness-sheet {
+  width: 100%;
+  max-height: calc(100% - 52px);
+  overflow-y: auto;
+  padding: 26px 26px 18px;
+  border-radius: 24px 24px 0 0;
+  background: #fff;
+  color: #17191c;
+  box-shadow: 0 -18px 34px rgba(15, 23, 42, 0.18);
+}
+
+.wellness-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.wellness-sheet h3 {
+  margin: 0;
+  font-size: 1.45rem;
+  letter-spacing: -0.02em;
+}
+
+.wellness-close {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #f5f5f5;
+  color: #17191c;
+  cursor: pointer;
+}
+
+.wellness-description,
+.wellness-disclaimer,
+.wellness-result {
+  color: #55585d;
+  line-height: 1.35;
+}
+
+.wellness-description { margin: 10px 0 18px; }
+.wellness-disclaimer { margin: 0 0 22px; }
+
+.wellness-modal-score {
+  display: grid;
+  place-items: center;
+  margin: 0 0 24px;
+}
+
+.wellness-ring {
+  --p: 0;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 114px;
+  height: 114px;
+  border-radius: 50%;
+  background: conic-gradient(#6cc68b calc(var(--p) * 1%), #e7e7e7 0);
+}
+
+.wellness-ring::before {
+  content: '';
+  position: absolute;
+  inset: 10px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.wellness-ring span,
+.wellness-ring small {
+  position: relative;
+  z-index: 1;
+}
+
+.wellness-ring span { margin-top: 10px; font-size: 1.6rem; font-weight: 800; }
+.wellness-ring small { margin-top: -28px; color: #55585d; font-size: 0.68rem; }
+
+.wellness-result {
+  margin: 0 0 22px;
+  font-size: 0.82rem;
+}
+
+.wellness-result strong { color: #57595d; }
+
+.wellness-scale {
+  display: grid;
+  gap: 9px;
+  padding-top: 16px;
+  border-top: 1px solid #ececec;
+}
+
+.wellness-scale > div {
+  display: grid;
+  grid-template-columns: 10px 52px 1fr;
+  align-items: center;
+  gap: 8px;
+  color: #4d5054;
+  font-size: 0.76rem;
+}
+
+.wellness-scale small { color: #74777b; }
+.scale-colour { width: 10px; height: 10px; border-radius: 50%; }
+.scale-colour.green { background: #6eb448; }
+.scale-colour.yellow { background: #fbbb08; }
+.scale-colour.red { background: #ef1717; }
 
 .submit-risk {
   width: 100%;
